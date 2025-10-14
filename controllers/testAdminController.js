@@ -1,0 +1,11 @@
+import { MockTest } from '../models/MockTest.js';
+import { MockTestQuestion } from '../models/MockTestQuestion.js';
+export const listTests = async (_req,res)=> res.json(await MockTest.find().sort({ created_at:-1 }));
+export const getTest = async (req,res)=>{ const x=await MockTest.findById(req.params.id); return x?res.json(x):res.status(404).json({ message:'Not found' }); };
+export const createTest = async (req,res)=>{ const t=await MockTest.create({ ...req.body, created_by:req.user.id }); res.status(201).json(t); };
+export const updateTest = async (req,res)=> res.json(await MockTest.findByIdAndUpdate(req.params.id, req.body, { new:true }));
+export const deleteTest = async (req,res)=>{ await MockTest.findByIdAndDelete(req.params.id); res.status(204).end(); };
+export const listTestQuestions = async (req,res)=> res.json(await MockTestQuestion.find({ test_id:req.params.id }).sort({ order_in_test:1 }));
+export const addQuestionToTest = async (req,res)=>{ const { question_id, order_in_test } = req.body; const doc=await MockTestQuestion.create({ test_id:req.params.id, question_id, order_in_test }); res.status(201).json(doc); };
+export const reorderTestQuestions = async (req,res)=>{ const { items }=req.body; await Promise.all(items.map(x=> MockTestQuestion.findByIdAndUpdate(x._id, { order_in_test:x.order_in_test }))); res.json({ updated: items.length }); };
+export const removeTestQuestion = async (req,res)=>{ await MockTestQuestion.findByIdAndDelete(req.params.id); res.status(204).end(); };

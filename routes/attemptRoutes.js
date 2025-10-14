@@ -1,0 +1,11 @@
+import express from 'express';
+import { auth } from '../middlewares/auth.js';
+import * as ctl from '../controllers/attemptController.js';
+const r = express.Router();
+r.post('/start', auth(true), ctl.startAttempt);
+r.get('/:id', auth(true), ctl.getAttemptDetail);
+r.post('/answer', auth(true), ctl.answerQuestion);
+r.post('/submit', auth(true), ctl.submitAttempt);
+r.post('/:id/artifacts', auth(true), ctl.addArtifact);
+r.get('/me/progress', auth(true), ctl.getMyProgress);
+export default r;

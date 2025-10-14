@@ -1,0 +1,12 @@
+import express from 'express';
+import { auth } from '../middlewares/auth.js';
+import * as ctl from '../controllers/vocabAdminController.js';
+const r = express.Router();
+r.get('/flashcards', ctl.listFlashcards);
+r.get('/flashcards/:id', ctl.getFlashcard);
+r.post('/flashcards', auth(true), ctl.createFlashcard);
+r.put('/flashcards/:id', auth(true), ctl.updateFlashcard);
+r.delete('/flashcards/:id', auth(true), ctl.deleteFlashcard);
+r.get('/saved-words', auth(true), ctl.listSavedWordsMine);
+r.post('/saved-words/toggle', auth(true), ctl.toggleSaveWord);
+export default r;

@@ -1,0 +1,10 @@
+import { Flashcard } from '../models/Flashcard.js';
+import { SavedWord } from '../models/SavedWord.js';
+import { buildPagination } from '../utils/paginate.js';
+export const listFlashcards = async (req,res)=>{ const { skip,limit }=buildPagination(req.query); const f={}; if(req.query.topic_id) f.topic_id=req.query.topic_id; if(req.query.q) f.word=new RegExp(String(req.query.q),'i'); const [items,total]=await Promise.all([ Flashcard.find(f).skip(skip).limit(limit), Flashcard.countDocuments(f) ]); res.json({ total, items }); };
+export const getFlashcard = async (req,res)=>{ const x=await Flashcard.findById(req.params.id); return x?res.json(x):res.status(404).json({message:'Not found'}); };
+export const createFlashcard = async (req,res)=> res.status(201).json(await Flashcard.create(req.body));
+export const updateFlashcard = async (req,res)=> res.json(await Flashcard.findByIdAndUpdate(req.params.id, req.body, {new:true}));
+export const deleteFlashcard = async (req,res)=>{ await Flashcard.findByIdAndDelete(req.params.id); res.status(204).end(); };
+export const listSavedWordsMine = async (req,res)=>{ const ids=await SavedWord.find({ user_id:req.user._id }).select('flashcard_id'); res.json(ids.map(x=>x.flashcard_id)); };
+export const toggleSaveWord = async (req,res)=>{ const key={ user_id:req.user._id, flashcard_id:req.body.flashcard_id }; const ex=await SavedWord.findOne(key); if(ex){ await SavedWord.deleteOne(key); return res.json({ saved:false }); } await SavedWord.create(key); res.json({ saved:true }); };

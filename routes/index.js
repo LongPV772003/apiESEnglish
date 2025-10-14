@@ -1,0 +1,17 @@
+import express from 'express';
+import auth from './authRoutes.js';
+import users from './userRoutes.js';
+import adminCatalog from './catalogAdminRoutes.js';
+import adminContent from './contentAdminRoutes.js';
+import vocab from './vocabAdminRoutes.js';
+import attempts from './attemptRoutes.js';
+import tests from './testAdminRoutes.js';
+const api = express.Router();
+api.use('/auth', auth);
+api.use('/users', users);
+api.use('/admin/catalog', adminCatalog);
+api.use('/admin/content', adminContent);
+api.use('/vocab', vocab);
+api.use('/attempts', attempts);
+api.use('/admin/tests', tests);
+export default api;

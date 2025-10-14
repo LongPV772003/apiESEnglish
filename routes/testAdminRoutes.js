@@ -1,0 +1,14 @@
+import express from 'express';
+import { auth, requireAdmin } from '../middlewares/auth.js';
+import * as ctl from '../controllers/testAdminController.js';
+const r = express.Router();
+r.get('/', ctl.listTests);
+r.get('/:id', ctl.getTest);
+r.post('/', auth(true), requireAdmin, ctl.createTest);
+r.put('/:id', auth(true), requireAdmin, ctl.updateTest);
+r.delete('/:id', auth(true), requireAdmin, ctl.deleteTest);
+r.get('/:id/questions', ctl.listTestQuestions);
+r.post('/:id/questions', auth(true), requireAdmin, ctl.addQuestionToTest);
+r.patch('/:id/questions/reorder', auth(true), requireAdmin, ctl.reorderTestQuestions);
+r.delete('/questions/:id', auth(true), requireAdmin, ctl.removeTestQuestion);
+export default r;
