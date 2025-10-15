@@ -154,3 +154,57 @@ export async function login(req, res) {
     res.status(500).json({ message: "Lỗi hệ thống" });
   }
 }
+// Đặt lại mật khẩu (sau khi xác minh OTP)
+export async function resetPassword(req, res) {
+  try {
+    const { email, new_password } = req.body;
+
+    if (!email || !new_password)
+      return res.status(400).json({ message: "Thiếu email hoặc mật khẩu mới." });
+
+    const verify = await VerifyCode.findOne({ email, verified: true });
+    if (!verify)
+      return res.status(400).json({ message: "Email chưa được xác minh OTP." });
+
+    const user = await User.findOne({ email });
+    if (!user)
+      return res.status(404).json({ message: "Không tìm thấy người dùng." });
+
+    const hash = await bcrypt.hash(new_password, 10);
+    user.password_hash = hash;
+    await user.save();
+
+    await VerifyCode.deleteMany({ email });
+
+    res.json({ message: "Đặt lại mật khẩu thành công." });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Lỗi hệ thống, vui lòng thử lại sau." });
+  }
+}
+
+
+// Đổi mật khẩu khi đã đăng nhập
+export async function changePassword(req, res) {
+  try {
+    const userId = req.user?.id;
+    const { old_password, new_password } = req.body;
+
+    if (!old_password || !new_password)
+      return res.status(400).json({ message: "Thiếu mật khẩu cũ hoặc mới." });
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: "Người dùng không tồn tại." });
+
+    const valid = await bcrypt.compare(old_password, user.password_hash);
+    if (!valid) return res.status(400).json({ message: "Mật khẩu cũ không đúng." });
+
+    user.password_hash = await bcrypt.hash(new_password, 10);
+    await user.save();
+
+    res.json({ message: "Đổi mật khẩu thành công." });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Lỗi hệ thống." });
+  }
+}
