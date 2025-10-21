@@ -1,15 +1,75 @@
 import mongoose from "mongoose";
 import dotenv from "dotenv";
+import axios from "axios";
 import { Topic } from "../models/Topic.js";
 import { ContentItem } from "../models/ContentItem.js";
 import { Skill } from "../models/Skill.js";
 
 dotenv.config();
+
+if (!process.env.MONGO_URI) {
+  console.error("❌ Missing MONGO_URI in .env");
+  process.exit(1);
+}
+if (!process.env.PIXABAY_KEY) {
+  console.error("❌ Missing PIXABAY_KEY in .env");
+  process.exit(1);
+}
+
 await mongoose.connect(process.env.MONGO_URI);
 console.log("✅ Connected to MongoDB");
 
+// =========================
+// Helpers: Pixabay
+// =========================
+async function getPixabayImage(query, fallbackText = "No Image") {
+  const url = `https://pixabay.com/api/?key=${process.env.PIXABAY_KEY}&q=${encodeURIComponent(
+    query
+  )}&image_type=photo&orientation=horizontal&safesearch=true&per_page=5`;
+  try {
+    const res = await axios.get(url);
+    if (res?.data?.hits?.length) {
+      // Ưu tiên ảnh có độ phân giải tốt
+      const hit = res.data.hits[0];
+      return hit.webformatURL || hit.largeImageURL || hit.previewURL;
+    }
+  } catch (e) {
+    console.warn(`⚠️ Pixabay image error (${query}): ${e.message}`);
+  }
+  return `https://via.placeholder.com/800x450?text=${encodeURIComponent(fallbackText)}`;
+}
+
+async function getPixabayVideo(query) {
+  // Pixabay Videos endpoint
+  const url = `https://pixabay.com/api/videos/?key=${process.env.PIXABAY_KEY}&q=${encodeURIComponent(
+    query
+  )}&video_type=film&safesearch=true&per_page=5`;
+  try {
+    const res = await axios.get(url);
+    if (res?.data?.hits?.length) {
+      const hit = res.data.hits[0];
+      // Chọn chất lượng vừa phải để stream ổn định
+      const files = hit.videos || {};
+      return (
+        files.medium?.url ||
+        files.small?.url ||
+        files.large?.url ||
+        files.tiny?.url ||
+        ""
+      );
+    }
+  } catch (e) {
+    console.warn(`⚠️ Pixabay video error (${query}): ${e.message}`);
+  }
+  return "";
+}
+
+// =========================
+// Build seed
+// =========================
 const skills = await Skill.find();
 const topics = await Topic.find();
+
 if (!skills.length || !topics.length) {
   console.log("⚠️ Cần seed kỹ năng và topics trước khi chạy.");
   process.exit(1);
@@ -18,41 +78,53 @@ if (!skills.length || !topics.length) {
 const contentItems = [];
 
 for (const topic of topics) {
-  // Tìm kỹ năng của topic để chọn loại content phù hợp
-  const skill = skills.find((s) => s._id.toString() === topic.skill_id.toString());
+  const skill = skills.find((s) => s._id.toString() === String(topic.skill_id));
   if (!skill) continue;
+
+  // Ảnh mặc định theo topic (dùng lại giữa các item của topic để đồng bộ visual)
+  const topicImage = await getPixabayImage(`${topic.title} English learning`, topic.title);
 
   switch (skill.code) {
     // ===============================================
-    // LISTENING (audio)
+    // LISTENING (dùng video Pixabay làm nguồn nghe)
     // ===============================================
-    case "LISTENING":
+    case "LISTENING": {
+      // Tạo 2 video “liên quan chủ đề” để làm listening clip
+      const video1 =
+        (await getPixabayVideo(`${topic.title} conversation`)) ||
+        (await getPixabayVideo(`${topic.title} people talking`));
+      const video2 =
+        (await getPixabayVideo(`${topic.title} daily life`)) ||
+        (await getPixabayVideo(`${topic.title} interview`));
+
       contentItems.push(
         {
           topic_id: topic._id,
           type: "LISTENING_AUDIO",
           title: `Audio 1: ${topic.title}`,
-          body_text: "Listen to the conversation and answer the questions below.",
-          media_audio_url: "https://cdn.openai.com/audio-sample-listening-1.mp3",
-          media_image_url: "https://cdn.openai.com/english-listening.jpg",
-          meta: { duration: "2:15", accent: "American" },
+          body_text: "Listen to the short clip and answer the questions below.",
+          // Pixabay không có audio-only => dùng video URL (MP4)
+          media_audio_url: video1 || "",
+          media_image_url: topicImage,
+          meta: { duration: "~2 min", accent: "Neutral", media_type: "video" },
           is_published: true,
         },
         {
           topic_id: topic._id,
           type: "LISTENING_AUDIO",
           title: `Audio 2: ${topic.title}`,
-          body_text: "Listen carefully and fill in the missing words.",
-          media_audio_url: "https://cdn.openai.com/audio-sample-listening-2.mp3",
-          media_image_url: "https://cdn.openai.com/audio-icon.png",
-          meta: { transcript: "Hey there! How are you today?" },
+          body_text: "Listen carefully and fill in the missing words you hear.",
+          media_audio_url: video2 || "",
+          media_image_url: topicImage,
+          meta: { duration: "~2 min", accent: "Neutral", media_type: "video" },
           is_published: true,
         }
       );
       break;
+    }
 
     // ===============================================
-    // READING (text)
+    // READING (text + ảnh minh họa từ Pixabay)
     // ===============================================
     case "READING":
       contentItems.push(
@@ -62,7 +134,8 @@ for (const topic of topics) {
           title: `Reading Passage 1: ${topic.title}`,
           body_text:
             "People around the world are becoming more aware of environmental problems. Many countries have started to recycle waste, reduce pollution, and plant trees.",
-          media_image_url: "https://cdn.openai.com/reading-passage-1.jpg",
+          media_image_url:
+            (await getPixabayImage(`${topic.title} environment`)) || topicImage,
           meta: { word_count: 120, difficulty: "medium" },
           is_published: true,
         },
@@ -72,7 +145,8 @@ for (const topic of topics) {
           title: `Reading Passage 2: ${topic.title}`,
           body_text:
             "Healthy eating means choosing foods that provide nutrients your body needs, such as vitamins, minerals, and fiber.",
-          media_image_url: "https://cdn.openai.com/reading-passage-2.jpg",
+          media_image_url:
+            (await getPixabayImage(`${topic.title} healthy food`)) || topicImage,
           meta: { word_count: 100, difficulty: "easy" },
           is_published: true,
         }
@@ -80,7 +154,7 @@ for (const topic of topics) {
       break;
 
     // ===============================================
-    // WRITING (prompt)
+    // WRITING (prompt + ảnh Pixabay)
     // ===============================================
     case "WRITING":
       contentItems.push(
@@ -90,7 +164,8 @@ for (const topic of topics) {
           title: `Writing Task 1: ${topic.title}`,
           body_text:
             "Write about your daily routine. What time do you wake up, go to school, and go to bed? Use at least 5 sentences.",
-          media_image_url: "https://cdn.openai.com/writing-prompt-1.png",
+          media_image_url:
+            (await getPixabayImage(`${topic.title} routine`)) || topicImage,
           meta: { word_limit: 120, difficulty: "beginner" },
           is_published: true,
         },
@@ -100,7 +175,8 @@ for (const topic of topics) {
           title: `Writing Task 2: ${topic.title}`,
           body_text:
             "Describe your favorite place to visit. Explain why it’s special and what people can do there.",
-          media_image_url: "https://cdn.openai.com/writing-prompt-2.png",
+          media_image_url:
+            (await getPixabayImage(`${topic.title} favorite place`)) || topicImage,
           meta: { word_limit: 150, difficulty: "intermediate" },
           is_published: true,
         }
@@ -108,7 +184,7 @@ for (const topic of topics) {
       break;
 
     // ===============================================
-    // SPEAKING (prompt + optional image)
+    // SPEAKING (prompt + ảnh Pixabay)
     // ===============================================
     case "SPEAKING":
       contentItems.push(
@@ -117,7 +193,8 @@ for (const topic of topics) {
           type: "SPEAKING_PROMPT",
           title: `Speaking Practice 1: ${topic.title}`,
           body_text: "Talk about your favorite hobby. Why do you like it?",
-          media_image_url: "https://cdn.openai.com/speaking-hobby.jpg",
+          media_image_url:
+            (await getPixabayImage(`${topic.title} hobby`)) || topicImage,
           meta: { suggested_duration: "1 min" },
           is_published: true,
         },
@@ -126,7 +203,8 @@ for (const topic of topics) {
           type: "SPEAKING_PROMPT",
           title: `Speaking Practice 2: ${topic.title}`,
           body_text: "Describe a person who inspires you and explain why.",
-          media_image_url: "https://cdn.openai.com/speaking-person.jpg",
+          media_image_url:
+            (await getPixabayImage(`${topic.title} people inspiration`)) || topicImage,
           meta: { suggested_duration: "2 min" },
           is_published: true,
         }
@@ -134,7 +212,7 @@ for (const topic of topics) {
       break;
 
     // ===============================================
-    // GRAMMAR (exercise)
+    // GRAMMAR (exercise + ảnh Pixabay để minh họa)
     // ===============================================
     case "GRAMMAR":
       contentItems.push(
@@ -144,6 +222,8 @@ for (const topic of topics) {
           title: `Grammar Focus: ${topic.title}`,
           body_text:
             "Choose the correct form of the verb in each sentence: 1. He (go/goes) to school every day.",
+          media_image_url:
+            (await getPixabayImage(`${topic.title} grammar tense`)) || topicImage,
           meta: { question_count: 5, topic: "Simple Present Tense" },
           is_published: true,
         },
@@ -153,6 +233,8 @@ for (const topic of topics) {
           title: `Grammar Practice: ${topic.title}`,
           body_text:
             "Fill in the blanks with the correct article (a, an, the): 1. ___ apple a day keeps the doctor away.",
+          media_image_url:
+            (await getPixabayImage(`${topic.title} grammar articles`)) || topicImage,
           meta: { question_count: 5, topic: "Articles" },
           is_published: true,
         }
@@ -161,7 +243,9 @@ for (const topic of topics) {
   }
 }
 
-// clear + insert
+// =========================
+// Xóa & Chèn
+// =========================
 await ContentItem.deleteMany({});
 await ContentItem.insertMany(contentItems);
 
