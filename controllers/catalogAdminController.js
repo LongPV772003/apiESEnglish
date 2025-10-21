@@ -12,7 +12,26 @@ export const getLevel = async (req,res)=>{ const x=await Level.findById(req.para
 export const createLevel = async (req,res)=> res.status(201).json(await Level.create(req.body));
 export const updateLevel = async (req,res)=> res.json(await Level.findByIdAndUpdate(req.params.id, req.body, {new:true}));
 export const deleteLevel = async (req,res)=>{ await Level.findByIdAndDelete(req.params.id); res.status(204).end(); };
-export const listTopics = async (req,res)=>{ const { skip,limit }=buildPagination(req.query); const f={}; if(req.query.skill_id) f.skill_id=req.query.skill_id; if(req.query.level_id) f.level_id=req.query.level_id; if(req.query.q) f.$text={ $search:String(req.query.q)}; const [items,total]=await Promise.all([ Topic.find(f).skip(skip).limit(limit).sort({created_at:-1}), Topic.countDocuments(f) ]); res.json({ total, items }); };
+export const listTopics = async (req, res) => {
+  try {
+    const filter = {};
+
+    if (req.query.type) {
+      filter.type = req.query.type.toUpperCase(); // FLASHCARD hoặc CONTENT
+    }
+
+    const list = await Topic.find(filter)
+      .populate('skill_id')
+      .populate('level_id')
+      .lean();
+
+    res.json(list);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Lỗi khi lấy danh sách topics.' });
+  }
+};
+
 export const getTopic = async (req,res)=>{ const x=await Topic.findById(req.params.id); return x?res.json(x):res.status(404).json({message:'Not found'}); };
 export const createTopic = async (req,res)=> res.status(201).json(await Topic.create(req.body));
 export const updateTopic = async (req,res)=> res.json(await Topic.findByIdAndUpdate(req.params.id, req.body, {new:true}));

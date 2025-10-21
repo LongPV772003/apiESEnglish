@@ -1,9 +1,15 @@
-import { Schema, model, Types } from 'mongoose';
-const s = new Schema({
-skill_id:{ type:Types.ObjectId, ref:'skills', required:true },
-level_id:{ type:Types.ObjectId, ref:'levels', required:true },
-title:{ type:String, required:true, maxlength:200 },
-description: String,
-},{ timestamps:{ createdAt:'created_at', updatedAt:'updated_at' } });
-s.index({ skill_id:1, level_id:1 }); s.index({ title:'text' });
-export const Topic = model('topics', s);
+import mongoose, { Schema } from "mongoose";
+
+const topicSchema = new Schema({
+  skill_id: { type: Schema.Types.ObjectId, ref: "skills" },
+  level_id: { type: Schema.Types.ObjectId, ref: "levels" },
+  title: { type: String, required: true },
+  description: String,
+  type: {
+    type: String,
+    enum: ["CONTENT", "FLASHCARD"],
+    default: "CONTENT"
+  }
+}, { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } });
+
+export const Topic = mongoose.model("topics", topicSchema);
