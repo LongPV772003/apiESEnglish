@@ -112,22 +112,25 @@ export const listSavedWordsMine = async (req, res) => {
     if (!userId)
       return res.status(401).json({ message: "Thiếu thông tin người dùng" });
 
-    console.log("🧩 userId dùng để query:", userId);
-    const saved = await SavedWord.find({
-      user_id: userId.toString(),
-    }).select("flashcard_id");
+    const saved = await SavedWord.find({ user_id: userId.toString() }).select("flashcard_id");
 
-    console.log("🔍 SavedWords tìm thấy:", saved.length);
+    if (!saved.length)
+      return res.json({ total: 0, items: [] });
 
-    if (!saved.length) return res.json([]);
+    const ids = saved.map(x => x.flashcard_id);
+    const flashcards = await Flashcard.find({ _id: { $in: ids } }).lean();
 
-    const ids = saved.map((x) => x.flashcard_id);
-    const flashcards = await Flashcard.find({ _id: { $in: ids } });
-
-    res.json(flashcards);
+    res.json({
+      total: flashcards.length,
+      items: flashcards,
+    });
   } catch (err) {
     console.error("❌ Lỗi listSavedWordsMine:", err);
-    res.status(500).json({ message: "Lỗi hệ thống khi lấy danh sách từ đã lưu" });
+    res.status(500).json({
+      message: "Lỗi hệ thống khi lấy danh sách từ đã lưu",
+      error: err.message,
+    });
   }
 };
+
 

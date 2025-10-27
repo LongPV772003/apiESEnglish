@@ -91,46 +91,52 @@ const seedFlashcards = async () => {
     await Flashcard.deleteMany();
 
     console.log("🌱 Thêm flashcards mới...");
-   for (const [topicName, cards] of Object.entries(data)) {
-    const topic = topics.find(t => t.title.includes(topicName)) || topics[0];
+    for (const [topicName, cards] of Object.entries(data)) {
+      console.log("Tìm kiếm topic:", topicName);
+      const topic = topics.find(t => t.title === topicName);
 
-    for (const card of cards) {
-      const word = card.word.toLowerCase();
-
-      // 🔊 Âm thanh Oxford
-      const audio = `https://ssl.gstatic.com/dictionary/static/sounds/oxford/${word}--_us_1.mp3`;
-
-      // 🖼️ Gọi API Pixabay để lấy ảnh phù hợp
-      const query = encodeURIComponent(word);
-      const pixabayUrl = `https://pixabay.com/api/?key=${process.env.PIXABAY_KEY}&q=${query}&image_type=photo&orientation=horizontal&per_page=3`;
-
-      let image = "";
-      try {
-        const res = await axios.get(pixabayUrl);
-        if (res.data.hits && res.data.hits.length > 0) {
-          image = res.data.hits[0].webformatURL; // Lấy ảnh đầu tiên
-        } else {
-          image = "https://via.placeholder.com/600x400?text=No+Image"; // fallback
-        }
-      } catch (err) {
-        console.warn(`⚠️ Pixabay lỗi cho từ '${word}':`, err.message);
-        image = "https://via.placeholder.com/600x400?text=Error";
+      if (!topic) {
+        console.warn(`⚠️ Không tìm thấy topic với tên: ${topicName}`);
+        continue; // Bỏ qua topic này nếu không tìm thấy
       }
 
-      // 💾 Lưu vào MongoDB
-      await Flashcard.create({
-        ...card,
-        audio_url: audio,
-        image_url: image,
-        topic_id: topic._id
-      });
-    }
+      for (const card of cards) {
+        const word = card.word.toLowerCase();
 
-    console.log(`✅ Đã thêm ${cards.length} flashcards cho topic ${topicName}`);
+        // 🔊 Âm thanh Oxford
+        const audio = `https://ssl.gstatic.com/dictionary/static/sounds/oxford/${word}--_us_1.mp3`;
+
+        // 🖼️ Gọi API Pixabay để lấy ảnh phù hợp
+        const query = encodeURIComponent(word);
+        const pixabayUrl = `https://pixabay.com/api/?key=${process.env.PIXABAY_KEY}&q=${query}&image_type=photo&orientation=horizontal&per_page=3`;
+
+        let image = "";
+        try {
+          const res = await axios.get(pixabayUrl);
+          if (res.data.hits && res.data.hits.length > 0) {
+            image = res.data.hits[0].webformatURL; // Lấy ảnh đầu tiên
+          } else {
+            image = "https://via.placeholder.com/600x400?text=No+Image"; // fallback
+          }
+        } catch (err) {
+          console.warn(`⚠️ Pixabay lỗi cho từ '${word}':`, err.message);
+          image = "https://via.placeholder.com/600x400?text=Error";
+        }
+
+        // 💾 Lưu vào MongoDB
+        await Flashcard.create({
+          ...card,
+          audio_url: audio,
+          image_url: image,
+          topic_id: topic._id
+        });
+      }
+
+      console.log(`✅ Đã thêm ${cards.length} flashcards cho topic ${topicName}`);
+    }
 
     console.log("🎉 Seed flashcards FULL thành công!");
     process.exit(0);
-  }
   } catch (err) {
     console.error("❌ Lỗi seed:", err.message);
     process.exit(1);

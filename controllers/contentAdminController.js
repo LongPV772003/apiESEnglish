@@ -2,7 +2,43 @@ import { ContentItem } from '../models/ContentItem.js';
 import { Question } from '../models/Question.js';
 import { QuestionOption } from '../models/QuestionOption.js';
 import { buildPagination } from '../utils/paginate.js';
-export const listContent = async (req,res)=>{ const { skip,limit }=buildPagination(req.query); const f={}; if(req.query.topic_id) f.topic_id=req.query.topic_id; if(req.query.type) f.type=req.query.type; if(req.query.published) f.is_published=req.query.published==='true'; const [items,total]=await Promise.all([ ContentItem.find(f).skip(skip).limit(limit).sort({created_at:-1}), ContentItem.countDocuments(f) ]); res.json({ total, items }); };
+export const listContent = async (req, res) => {
+  try {
+    const { skip, limit } = buildPagination(req.query);
+    const f = {};
+
+    // lọc theo topic
+    if (req.query.topic_id) f.topic_id = req.query.topic_id;
+
+    // lọc theo loại content
+    if (req.query.type) f.type = req.query.type;
+
+    // lọc theo trạng thái publish
+    if (req.query.published) f.is_published = req.query.published === "true";
+
+    // 🔥 thêm lọc theo cấp độ (BEGINNER / INTERMEDIATE / ADVANCED)
+    if (req.query.level_code)
+      f["meta.level"] = req.query.level_code.toUpperCase();
+
+    // 🔥 thêm lọc theo kỹ năng (READING / LISTENING / ...)
+    if (req.query.skill_code)
+      f["meta.skill"] = req.query.skill_code.toUpperCase();
+
+    const [items, total] = await Promise.all([
+      ContentItem.find(f)
+        .skip(skip)
+        .limit(limit)
+        .sort({ created_at: -1 }),
+      ContentItem.countDocuments(f),
+    ]);
+
+    res.json({ total, items });
+  } catch (err) {
+    console.error("❌ listContent error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
+
 export const getContent = async (req,res)=>{ const x=await ContentItem.findById(req.params.id); return x?res.json(x):res.status(404).json({message:'Not found'}); };
 export const createContent = async (req,res)=>{ const doc=await ContentItem.create({ ...req.body, created_by:req.user?._id }); res.status(201).json(doc); };
 export const updateContent = async (req,res)=> res.json(await ContentItem.findByIdAndUpdate(req.params.id, req.body, {new:true}));
