@@ -28,9 +28,19 @@ async function run() {
     const topics = await Topic.find({ skill_id: readingSkill._id, type: "CONTENT" });
     if (!topics.length) throw new Error("⚠️ Chưa có topic cho kỹ năng READING.");
 
+     // 🧹 Lấy tất cả contentItem thuộc các topic READING
+    const contentItems = await ContentItem.find({ topic_id: { $in: topics.map(t => t._id) } });
+    const contentIds = contentItems.map(c => c._id);
+
+    // 🔥 Xoá question & options chỉ thuộc các content_item đó
+    const questions = await Question.find({ content_item_id: { $in: contentIds } });
+    const questionIds = questions.map(q => q._id);
+
+    await QuestionOption.deleteMany({ question_id: { $in: questionIds } });
+    await Question.deleteMany({ content_item_id: { $in: contentIds } });
     await ContentItem.deleteMany({ topic_id: { $in: topics.map(t => t._id) } });
-    await Question.deleteMany({});
-    await QuestionOption.deleteMany({});
+
+    console.log(`🧹 Đã xoá toàn bộ Reading ContentItems (${contentIds.length}), Questions (${questionIds.length}) và Options liên quan`);
 
     const CLOUD_BASE = "https://res.cloudinary.com/dtdsqfj0i/image/upload/v1761314549/";
     const readingImages = [

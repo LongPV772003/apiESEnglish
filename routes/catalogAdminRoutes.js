@@ -13,7 +13,7 @@ r.post('/levels', auth(true), requireAdmin, ctl.createLevel);
 r.put('/levels/:id', auth(true), requireAdmin, ctl.updateLevel);
 r.delete('/levels/:id', auth(true), requireAdmin, ctl.deleteLevel);
 r.get('/topics', ctl.listTopics);
-r.get('/topics/:id', ctl.getTopic);
+r.get('/topics/:id', ctl.getOneTopic);
 r.post('/topics', auth(true), requireAdmin, ctl.createTopic);
 r.put('/topics/:id', auth(true), requireAdmin, ctl.updateTopic);
 r.delete('/topics/:id', auth(true), requireAdmin, ctl.deleteTopic);

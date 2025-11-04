@@ -12,49 +12,63 @@ export const getAttemptDetail = async (req,res)=>{ const att=await UserAttempt.f
 export const addArtifact = async (req,res)=>{ const { id }=req.params; const att=await UserAttempt.findOne({ _id:id, user_id:req.user.id }); if(!att) return res.status(404).json({ message:'Attempt not found' }); const art=await AttemptArtifact.create({ attempt_id:id, ...req.body }); res.status(201).json(art); };
 export const getMyProgress = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.id;  // Lấy user_id từ decoded token
 
+    // 1️⃣ Lấy thông tin tiến độ học của người dùng từ UserSkillProgress và populate skill_id, level_id, topic_id
     const progressList = await UserSkillProgress.find({ user_id: userId })
-      .populate('skill_id')
-      .populate('level_id')
+      .populate('skill_id') // Populate thông tin về skill
+      .populate('level_id') // Populate thông tin về level
+      .populate('topic_id') // Populate thông tin về topic
       .lean();
 
-    const skills = [];
+    const progress = [];
+
+    // 2️⃣ Duyệt qua các tiến độ học của người dùng
     for (const p of progressList) {
+      // Lấy điểm và nhận xét của mỗi topic
       const recentAttempt = await UserAttempt.findOne({
         user_id: userId,
         skill_id: p.skill_id._id,
-        level_id: p.level_id?._id
+        level_id: p.level_id._id,
+        topic_id: p.topic_id._id, // Lọc theo topic_id
       })
-        .sort({ submitted_at: -1 })
+        .sort({ submitted_at: -1 }) // Sắp xếp để lấy attempt gần nhất
         .lean();
 
-      const progress_percent =
-        p.total_attempts > 0
-          ? Math.round((p.correct_count / p.total_attempts) * 100)
-          : 0;
+      const score = recentAttempt ? recentAttempt.score : 0;
+      const feedback = recentAttempt ? recentAttempt.feedback : "No feedback provided";
 
-      skills.push({
+      const progress_percent =
+        p.total_attempts > 0 ? Math.round((p.correct_count / p.total_attempts) * 100) : 0;
+
+      // Lưu thông tin tiến độ của từng topic
+      progress.push({
         skill_code: p.skill_id.code,
         skill_name: p.skill_id.name,
         level: p.level_id?.name || 'Unknown',
+        topic_title: p.topic_id?.title || 'No Title',
+        topic_description: p.topic_id?.description || 'No Description',
         progress_percent,
         completed_lessons: p.correct_count,
         total_lessons: p.total_attempts,
-        recent_topic: recentAttempt?.topic_title || '—',
+        score,  // Điểm của topic
+        feedback,  // Nhận xét của topic
+        topic_details: p.topic_id || {},  // Thêm tất cả thông tin của topic_id
       });
     }
 
+    // 3️⃣ Tính tổng điểm mock tests (điểm từ tiến độ học)
     const mock_tests = {
-      total_score: skills.reduce((sum, s) => sum + (s.progress_percent || 0), 0),
-      skills: skills.map(s => ({
+      total_score: progress.reduce((sum, s) => sum + (s.progress_percent || 0), 0),
+      skills: progress.map(s => ({
         skill: s.skill_name,
-        score: s.progress_percent
-      }))
+        score: s.progress_percent,
+      })),
     };
 
+    // 4️⃣ Lấy flashcards của người dùng (liên quan đến topic_id)
     const flashcardsRaw = await Flashcard.find({ user_id: userId })
-      .populate('topic_id')
+      .populate('topic_id')  // Populate topic_id để lấy tên topic
       .lean();
 
     const grouped = {};
@@ -73,11 +87,13 @@ export const getMyProgress = async (req, res) => {
       words: grouped[topic],
     }));
 
+    // 5️⃣ Trả về dữ liệu tiến độ học, điểm và nhận xét cho từng topic, flashcards
     res.json({
-      skills,
+      progress,  // Trả thông tin về điểm và nhận xét cho từng topic
       mock_tests,
-      flashcards
+      flashcards,
     });
+
   } catch (err) {
     console.error('getMyProgress error:', err);
     res.status(500).json({ message: 'Server error', error: err.message });

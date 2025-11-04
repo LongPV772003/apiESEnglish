@@ -56,6 +56,49 @@ export const listTopics = async (req, res) => {
 
 
 export const getTopic = async (req,res)=>{ const x=await Topic.findById(req.params.id); return x?res.json(x):res.status(404).json({message:'Not found'}); };
-export const createTopic = async (req,res)=> res.status(201).json(await Topic.create(req.body));
-export const updateTopic = async (req,res)=> res.json(await Topic.findByIdAndUpdate(req.params.id, req.body, {new:true}));
-export const deleteTopic = async (req,res)=>{ await Topic.findByIdAndDelete(req.params.id); res.status(204).end(); };
+export const createTopic = async (req, res) => {
+  try {
+    const topic = new Topic(req.body);
+    await topic.save();
+    res.status(201).json({ message: "Tạo topic thành công", topic });
+  } catch (err) {
+    console.error("❌ Lỗi createTopic:", err);
+    res.status(500).json({ message: "Lỗi khi tạo topic mới." });
+  }
+};
+export const updateTopic = async (req, res) => {
+  try {
+    const topic = await Topic.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!topic) return res.status(404).json({ message: "Topic không tồn tại." });
+    res.json({ message: "Cập nhật topic thành công", topic });
+  } catch (err) {
+    console.error("❌ Lỗi updateTopic:", err);
+    res.status(500).json({ message: "Lỗi khi cập nhật topic." });
+  }
+};
+export const deleteTopic = async (req, res) => {
+  try {
+    const topic = await Topic.findByIdAndDelete(req.params.id);
+    if (!topic) return res.status(404).json({ message: "Topic không tồn tại." });
+    res.json({ message: "Xoá topic thành công"});
+  } catch (err) {
+    console.error("❌ Lỗi deleteTopic:", err);
+    res.status(500).json({ message: "Lỗi khi xoá topic." });
+  }
+};
+export const getOneTopic = async (req, res) => {
+  try {
+    const topic = await Topic.findById(req.params.id)
+      .populate("skill_id", "code name description")
+      .populate("level_id", "code name sort_order description");
+
+    if (!topic) {
+      return res.status(404).json({ message: "Topic không tìm thấy" });
+    }
+
+    res.json(topic);
+  } catch (err) {
+    console.error("❌ Lỗi getOneTopic:", err);
+    res.status(500).json({ message: "Lỗi khi lấy thông tin topic." });
+  }
+};

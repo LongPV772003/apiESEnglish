@@ -39,12 +39,93 @@ export const listContent = async (req, res) => {
   }
 };
 
-export const getContent = async (req,res)=>{ const x=await ContentItem.findById(req.params.id); return x?res.json(x):res.status(404).json({message:'Not found'}); };
-export const createContent = async (req,res)=>{ const doc=await ContentItem.create({ ...req.body, created_by:req.user?._id }); res.status(201).json(doc); };
-export const updateContent = async (req,res)=> res.json(await ContentItem.findByIdAndUpdate(req.params.id, req.body, {new:true}));
-export const deleteContent = async (req,res)=>{ await ContentItem.findByIdAndDelete(req.params.id); res.status(204).end(); };
-export const listQuestionsOfItem = async (req,res)=> res.json(await Question.find({ content_item_id:req.params.id }).sort({order_in_item:1}));
-export const createQuestionForItem = async (req,res)=>{ const q=await Question.create({ ...req.body, content_item_id:req.params.id }); res.status(201).json(q); };
+export const getContent = async (req, res) => {
+  try {
+    const content = await ContentItem.findById(req.params.id);
+    if (!content) return res.status(404).json({ message: "Not found" });
+    res.json(content);
+  } catch (err) {
+    console.error("❌ getContent error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
+export const createContent = async (req, res) => {
+  try {
+    const doc = await ContentItem.create({ ...req.body, created_by: req.user?._id });
+    res.status(201).json(doc);
+  } catch (err) {
+    console.error("❌ createContent error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
+
+// Cập nhật thông tin content item
+export const updateContent = async (req, res) => {
+  try {
+    const updatedContent = await ContentItem.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!updatedContent) return res.status(404).json({ message: "Not found" });
+    res.json(updatedContent);
+  } catch (err) {
+    console.error("❌ updateContent error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
+
+// Xoá content item
+export const deleteContent = async (req, res) => {
+  try {
+    const content = await ContentItem.findByIdAndDelete(req.params.id);
+    if (!content) return res.status(404).json({ message: "Not found" });
+    res.json({ message: "Xoá content thành công"});
+  } catch (err) {
+    console.error("❌ deleteContent error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
+export const listQuestionsOfItem = async (req, res) => {
+  try {
+    const questions = await Question.find({ content_item_id: req.params.id }).sort({ order_in_item: 1 });
+    res.json(questions);
+  } catch (err) {
+    console.error("❌ listQuestionsOfItem error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
+
+// Tạo câu hỏi cho content item
+export const createQuestionForItem = async (req, res) => {
+  try {
+    const question = await Question.create({ ...req.body, content_item_id: req.params.id });
+    res.status(201).json(question);
+  } catch (err) {
+    console.error("❌ createQuestionForItem error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
+
+// Cập nhật câu hỏi
+export const updateQuestion = async (req, res) => {
+  try {
+    const updatedQuestion = await Question.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!updatedQuestion) return res.status(404).json({ message: "Not found" });
+    res.json(updatedQuestion);
+  } catch (err) {
+    console.error("❌ updateQuestion error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
+
+// Xoá câu hỏi
+export const deleteQuestion = async (req, res) => {
+  try {
+    const question = await Question.findByIdAndDelete(req.params.id);
+    if (!question) return res.status(404).json({ message: "Not found" });
+    res.json({ message: "Xoá question thành công"});
+  } catch (err) {
+    console.error("❌ deleteQuestion error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
 export const listOptions = async (req,res)=> res.json(await QuestionOption.find({ question_id:req.params.qid }));
 export const addOptionsBatch = async (req,res)=>{ const options=(req.body?.options||[]).map(o=>({ ...o, question_id:req.params.qid })); await QuestionOption.insertMany(options); res.status(201).json({ inserted: options.length }); };
 export const updateOption = async (req,res)=> res.json(await QuestionOption.findByIdAndUpdate(req.params.id, req.body, {new:true}));
