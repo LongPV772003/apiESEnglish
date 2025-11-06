@@ -1,40 +1,41 @@
 import { Results } from "../models/Results.js";  // Model lưu kết quả
 import { UserSkillProgress } from "../models/UserSkillProgress.js";  // Theo dõi tiến độ học
 import { Topic } from "../models/Topic.js";  // Lấy topic
+import { User } from "../models/User.js";
 
 export const saveResult = async (req, res) => {
   try {
     const { topic_id, score, band_score, feedback } = req.body;
 
-    // Kiểm tra dữ liệu hợp lệ
-    if (!topic_id || score === undefined || feedback === undefined) {
+    if (!topic_id || score === undefined || feedback === undefined)
       return res.status(400).json({ message: "Dữ liệu không hợp lệ!" });
-    }
 
-    // Kiểm tra thông tin user
-    if (!req.user || !req.user.id) {
+    if (!req.user || !req.user.id)
       return res.status(400).json({ message: "User không hợp lệ hoặc không có token" });
-    }
+
     const userId = req.user.id;
 
-    // Lấy thông tin topic và skill, level từ topic_id
-    const topic = await Topic.findById(topic_id).populate('skill_id').populate('level_id');
+    // Lấy thông tin user để lấy full_name
+    const user = await User.findById(userId).select("full_name username email");
+    if (!user) return res.status(404).json({ message: "Không tìm thấy thông tin user." });
+
+    // Lấy thông tin topic + skill + level
+    const topic = await Topic.findById(topic_id).populate("skill_id").populate("level_id");
     if (!topic) return res.status(404).json({ message: "Topic không tìm thấy" });
 
-    // Kiểm tra thông tin skill và level
     const { skill_id, level_id } = topic;
-    if (!skill_id || !level_id) {
+    if (!skill_id || !level_id)
       return res.status(400).json({ message: "Không tìm thấy thông tin skill hoặc level trong topic" });
-    }
 
-    // Lấy mã skill và level
-    const skillCode = skill_id.code;  // Lấy mã kỹ năng từ skill_id (đã được populate)
-    const levelCode = level_id.code;  // Lấy mã cấp độ từ level_id (đã được populate)
-    const skillId = skill_id._id;  // Lấy mã kỹ năng từ skill_id (đã được populate)
-    const levelId = level_id._id; 
+    const skillCode = skill_id.code;
+    const levelCode = level_id.code;
+    const skillId = skill_id._id;
+    const levelId = level_id._id;
 
+    // Lưu kết quả
     const result = await Results.create({
-      userId, 
+      userId,
+      user_name: user.full_name || user.username, // ⚡ thêm tên người dùng
       skill: skillCode,
       level: levelCode,
       score,
@@ -43,20 +44,28 @@ export const saveResult = async (req, res) => {
       topic_id,
     });
 
-    // Cập nhật tiến độ học của người dùng
+    // Cập nhật tiến độ học
     await UserSkillProgress.findOneAndUpdate(
-        { user_id: userId, skill_id: skillId, level_id: levelId, topic_id },
-        {
-            $inc: { total_attempts: 1, total_score: score, correct_count: score >= 5 ? 1 : 0 },
-            $set: { last_activity_at: new Date() },
-        },
-        { upsert: true, new: true }
+      { user_id: userId, skill_id: skillId, level_id: levelId, topic_id },
+      {
+        $inc: { total_attempts: 1, total_score: score, correct_count: score >= 5 ? 1 : 0 },
+        $set: { last_activity_at: new Date() },
+      },
+      { upsert: true, new: true }
     );
 
-
+    // Trả về kết quả có thông tin người dùng
     res.status(201).json({
       message: "Kết quả đã được lưu thành công!",
-      result,
+      result: {
+        ...result.toObject(),
+        user: {
+          id: userId,
+          full_name: user.full_name,
+          username: user.username,
+          email: user.email,
+        },
+      },
     });
   } catch (err) {
     console.error("❌ Error:", err.message);
@@ -66,16 +75,36 @@ export const saveResult = async (req, res) => {
 export const getResults = async (req, res) => {
   try {
     const userId = req.user.id;
+
+    // Lấy tất cả kết quả của user hiện tại
     const results = await Results.find({ userId })
       .populate("topic_id", "title")
-      .sort({ created_at: -1 });
+      .sort({ created_at: -1 })
+      .select("user_name skill level score band_score feedback topic_id created_at");
 
-    res.json({ total: results.length, results });
+    // Nếu chưa có user_name (trường cũ), fallback từ req.user.full_name
+    const formatted = results.map(r => ({
+      _id: r._id,
+      name: r.user_name || req.user.full_name || "Unknown User",
+      skill: r.skill,
+      level: r.level,
+      score: r.score,
+      band_score: r.band_score,
+      feedback: r.feedback,
+      topic: r.topic_id ? r.topic_id.title : null,
+      created_at: r.created_at,
+    }));
+
+    res.json({
+      total: formatted.length,
+      results: formatted,
+    });
   } catch (err) {
     console.error("❌ Error:", err.message);
     res.status(500).json({ message: "Lỗi khi lấy kết quả." });
   }
 };
+
 
 // Xóa kết quả theo id
 export const deleteResult = async (req, res) => {
