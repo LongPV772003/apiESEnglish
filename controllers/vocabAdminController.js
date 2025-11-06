@@ -57,6 +57,7 @@ export const updateFlashcard = async (req, res) => {
 
 export const deleteFlashcard = async (req, res) => {
   await Flashcard.findByIdAndDelete(req.params.id);
+  res.json({message: "Xoá Flashcard thành công! "})
   res.status(204).end();
 };
 

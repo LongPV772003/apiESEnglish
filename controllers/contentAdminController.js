@@ -126,10 +126,53 @@ export const deleteQuestion = async (req, res) => {
     res.status(500).json({ message: "Server error", error: err.message });
   }
 };
-export const listOptions = async (req,res)=> res.json(await QuestionOption.find({ question_id:req.params.qid }));
-export const addOptionsBatch = async (req,res)=>{ const options=(req.body?.options||[]).map(o=>({ ...o, question_id:req.params.qid })); await QuestionOption.insertMany(options); res.status(201).json({ inserted: options.length }); };
-export const updateOption = async (req,res)=> res.json(await QuestionOption.findByIdAndUpdate(req.params.id, req.body, {new:true}));
-export const deleteOption = async (req,res)=>{ await QuestionOption.findByIdAndDelete(req.params.id); res.status(204).end(); };
+// Lấy tất cả các option của câu hỏi
+export const listOptions = async (req, res) => {
+  try {
+    const options = await QuestionOption.find({ question_id: req.params.qid });
+    res.json(options);
+  } catch (err) {
+    console.error("❌ listOptions error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
+
+// Thêm một batch option cho câu hỏi
+export const addOptionsBatch = async (req, res) => {
+  try {
+    const options = (req.body?.options || []).map(o => ({ ...o, question_id: req.params.qid }));
+    await QuestionOption.insertMany(options);
+    res.status(201).json({ inserted: options.length });
+  } catch (err) {
+    console.error("❌ addOptionsBatch error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
+
+// Cập nhật một option
+export const updateOption = async (req, res) => {
+  try {
+    const updatedOption = await QuestionOption.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!updatedOption) return res.status(404).json({ message: "Option Not found" });
+    res.json({ message: "Xoá option question thành công", updatedOption});
+  } catch (err) {
+    console.error("❌ updateOption error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
+
+// Xoá một option
+export const deleteOption = async (req, res) => {
+  try {
+    const option = await QuestionOption.findByIdAndDelete(req.params.id);
+    if (!option) return res.status(404).json({ message: "Not found" });
+    res.json({ message: "Xoá option question thành công"})
+  } catch (err) {
+    console.error("❌ deleteOption error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
+
 export async function getContentDetail(req, res) {
   try {
     const { id } = req.params;

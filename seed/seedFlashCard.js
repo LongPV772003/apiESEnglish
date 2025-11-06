@@ -122,7 +122,6 @@ const seedFlashcards = async () => {
           console.warn(`⚠️ Pixabay lỗi cho từ '${word}':`, err.message);
           image = "https://via.placeholder.com/600x400?text=Error";
         }
-s
         // 💾 Lưu vào MongoDB
         await Flashcard.create({
           ...card,

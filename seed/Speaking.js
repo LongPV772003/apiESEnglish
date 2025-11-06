@@ -18,7 +18,7 @@ async function run() {
     const speakingSkill = await Skill.findOne({ code: "SPEAKING" });
     if (!speakingSkill) throw new Error("⚠️ Skill SPEAKING chưa được seed!");
 
-    const levels = await Level.find();
+    const levels = await Level.find(); // Lấy tất cả các level
     if (!levels.length) throw new Error("⚠️ Cần seed các level trước!");
 
     const topics = await Topic.find({ skill_id: speakingSkill._id });
@@ -29,30 +29,29 @@ async function run() {
     await Question.deleteMany({ content_item_id: { $in: topics.map(t => t._id) } });
 
     const CLOUD_BASE = "https://res.cloudinary.com/dtdsqfj0i/image/upload/v1761314549/";
-    
+
     // Cập nhật hình ảnh và audio cho từng content-item
     const speakingImages = {
       BEGINNER: [
-        `${CLOUD_BASE}Morning_brushing_vs._nighttime_brushing_zl0008.jpg`,  // Hình ảnh content-item 1
+        `${CLOUD_BASE}Morning_brushing_vs._nighttime_brushing_zl0008.jpg`,
       ],
       INTERMEDIATE: [
-        `${CLOUD_BASE}nghi-luan-ve-tam-quan-trong-cua-viec-hoc_kpedpg.jpg`,  // Hình ảnh content-item 1
+        `${CLOUD_BASE}nghi-luan-ve-tam-quan-trong-cua-viec-hoc_kpedpg.jpg`,
       ],
       ADVANCED: [
-        `${CLOUD_BASE}images_1_tiv9fz.jpg`,  // Hình ảnh content-item 1
+        `${CLOUD_BASE}images_1_tiv9fz.jpg`,
       ],
     };
 
     const SAMPLE_AUDIO = {
       BEGINNER: [
-        "https://res.cloudinary.com/dtdsqfj0i/video/upload/v1762104151/1762103517809908853-329935719813257_izwwxm.mp3",  // Audio content-item 1
-        "https://res.cloudinary.com/dtdsqfj0i/video/upload/v1762104151/1762103546573471077-329935847858244_iprm9y.mp3",  // Audio content-item 2
+        "https://res.cloudinary.com/dtdsqfj0i/video/upload/v1762104151/1762103517809908853-329935719813257_izwwxm.mp3",
+        "https://res.cloudinary.com/dtdsqfj0i/video/upload/v1762104151/1762103546573471077-329935847858244_iprm9y.mp3",
       ],
       INTERMEDIATE: [
-        "https://res.cloudinary.com/dtdsqfj0i/video/upload/v1762104151/1762103591694443831-329935951863893_rlt4ep.mp3",  // Audio content-item 2
+        "https://res.cloudinary.com/dtdsqfj0i/video/upload/v1762104151/1762103591694443831-329935951863893_rlt4ep.mp3",
       ],
-      ADVANCED: [
-      ],
+      ADVANCED: [],
     };
 
     let total = 0;
@@ -76,21 +75,22 @@ async function run() {
             type: "SPEAKING_PROMPT",
             title: `Speaking Prompt: ${topic.title} (${level.name}) - Content ${i + 1}`,
             body_text,
-            media_image_url: images[i],  // Gán hình ảnh cụ thể cho content-item
-            media_audio_url: audio[i],  // Gán audio cụ thể cho content-item
+            media_image_url: images[i],
+            media_audio_url: audio[i],
             is_published: true,
             meta: { level: level.code, skill: "SPEAKING" },
+            level_id: level._id, // Thêm `level_id` vào ContentItem
           });
 
           // 3️⃣ Tạo câu hỏi (1 câu hỏi cho content-item)
           const createdQuestion = await Question.create({
             content_item_id: content._id,
-            question_type: "OPEN_ENDED",  // Đặt câu hỏi mở cho Speaking
+            question_type: "OPEN_ENDED",
             question_text: question_data.text,
             points: 1,
-            order_in_item: i + 1,  // Thứ tự câu hỏi
+            order_in_item: i + 1,
           });
-          
+
           total++;
         }
       }
@@ -122,15 +122,15 @@ function getSpeakingQuestion(level) {
   switch (level) {
     case "BEGINNER":
       return {
-        text: "Đọc lại các câu sau bằng giọng nói của bạn.",
+        text: "I brush my teeth every morning",
       };
     case "INTERMEDIATE":
       return {
-        text: "Hãy trả lời câu hỏi sau bằng giọng nói của bạn: Bạn thích làm gì trong thời gian rảnh?",
+        text: "Please answer the following question in your own voice: What do you like to do in your free time? ",
       };
     case "ADVANCED":
       return {
-        text: "Nêu ý kiến của bạn về chủ đề: 'Tầm quan trọng của việc học tập suốt đời'.",
+        text: "State your opinion on the topic: 'The importance of lifelong learning'.",
       };
     default:
       return {
@@ -140,3 +140,4 @@ function getSpeakingQuestion(level) {
 }
 
 run();
+
