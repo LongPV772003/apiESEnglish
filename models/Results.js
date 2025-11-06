@@ -6,6 +6,7 @@ const resultSchema = new mongoose.Schema({
   score: { type: Number, required: true },
   band_score: { type: Number, min: 0, max: 9 },  // Band score cho Speaking
   feedback: { type: String, required: true },
+  topic_id: { type: mongoose.Schema.Types.ObjectId, ref: "topics", required: true },
   created_at: { type: Date, default: Date.now },
 });
 

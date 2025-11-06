@@ -63,3 +63,48 @@ export const saveResult = async (req, res) => {
     res.status(500).json({ message: "Lỗi lưu kết quả." });
   }
 };
+export const getResults = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const results = await Results.find({ userId })
+      .populate("topic_id", "title")
+      .sort({ created_at: -1 });
+
+    res.json({ total: results.length, results });
+  } catch (err) {
+    console.error("❌ Error:", err.message);
+    res.status(500).json({ message: "Lỗi khi lấy kết quả." });
+  }
+};
+
+// Xóa kết quả theo id
+export const deleteResult = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const result = await Results.findOneAndDelete({ _id: id, userId });
+    if (!result) return res.status(404).json({ message: "Kết quả không tồn tại hoặc không thuộc user này." });
+
+    res.json({ message: "Xóa kết quả thành công." });
+  } catch (err) {
+    console.error("❌ Error:", err.message);
+    res.status(500).json({ message: "Lỗi khi xóa kết quả." });
+  }
+};
+export const deleteAllResults = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const deleted = await Results.deleteMany({ userId });
+    if (deleted.deletedCount === 0)
+      return res.status(404).json({ message: "Không có kết quả nào để xóa." });
+
+    res.json({
+      message: `Đã xóa ${deleted.deletedCount} kết quả của người dùng.`,
+    });
+  } catch (err) {
+    console.error("❌ Error:", err.message);
+    res.status(500).json({ message: "Lỗi khi xóa tất cả kết quả." });
+  }
+};
