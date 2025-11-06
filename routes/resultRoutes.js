@@ -1,6 +1,6 @@
 // routes/results.js
 import express from "express";
-import { deleteAllResults, deleteResult, getResults, saveResult } from "../controllers/resultsController.js";
+import { deleteAllResults, deleteAllResultsUser, deleteResult, getAllResults, getResults, saveResult } from "../controllers/resultsController.js";
 import { auth } from "../middlewares/auth.js";
 
 const router = express.Router();
@@ -9,6 +9,8 @@ const router = express.Router();
 router.post("/", auth(), saveResult);
 router.get("/", auth(), getResults);
 router.delete("/:id", auth(), deleteResult);
-router.delete("/", auth(), deleteAllResults); 
+router.delete("/", auth(), deleteAllResultsUser);
+router.delete("/all", deleteAllResults);
+router.get("/all", getAllResults); 
 
 export default router;

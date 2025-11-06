@@ -1,7 +1,7 @@
-import { ContentItem } from '../models/ContentItem.js';
-import { Question } from '../models/Question.js';
-import { QuestionOption } from '../models/QuestionOption.js';
-import { buildPagination } from '../utils/paginate.js';
+import { ContentItem } from "../models/ContentItem.js";
+import { Question } from "../models/Question.js";
+import { QuestionOption } from "../models/QuestionOption.js";
+import { buildPagination } from "../utils/paginate.js";
 export const listContent = async (req, res) => {
   try {
     const { skip, limit } = buildPagination(req.query);
@@ -25,10 +25,7 @@ export const listContent = async (req, res) => {
       f["meta.skill"] = req.query.skill_code.toUpperCase();
 
     const [items, total] = await Promise.all([
-      ContentItem.find(f)
-        .skip(skip)
-        .limit(limit)
-        .sort({ created_at: -1 }),
+      ContentItem.find(f).skip(skip).limit(limit).sort({ created_at: -1 }),
       ContentItem.countDocuments(f),
     ]);
 
@@ -51,7 +48,10 @@ export const getContent = async (req, res) => {
 };
 export const createContent = async (req, res) => {
   try {
-    const doc = await ContentItem.create({ ...req.body, created_by: req.user?._id });
+    const doc = await ContentItem.create({
+      ...req.body,
+      created_by: req.user?._id,
+    });
     res.status(201).json(doc);
   } catch (err) {
     console.error("❌ createContent error:", err);
@@ -62,7 +62,11 @@ export const createContent = async (req, res) => {
 // Cập nhật thông tin content item
 export const updateContent = async (req, res) => {
   try {
-    const updatedContent = await ContentItem.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const updatedContent = await ContentItem.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true }
+    );
     if (!updatedContent) return res.status(404).json({ message: "Not found" });
     res.json(updatedContent);
   } catch (err) {
@@ -76,7 +80,7 @@ export const deleteContent = async (req, res) => {
   try {
     const content = await ContentItem.findByIdAndDelete(req.params.id);
     if (!content) return res.status(404).json({ message: "Not found" });
-    res.json({ message: "Xoá content thành công"});
+    res.json({ message: "Xoá content thành công" });
   } catch (err) {
     console.error("❌ deleteContent error:", err);
     res.status(500).json({ message: "Server error", error: err.message });
@@ -84,7 +88,9 @@ export const deleteContent = async (req, res) => {
 };
 export const listQuestionsOfItem = async (req, res) => {
   try {
-    const questions = await Question.find({ content_item_id: req.params.id }).sort({ order_in_item: 1 });
+    const questions = await Question.find({
+      content_item_id: req.params.id,
+    }).sort({ order_in_item: 1 });
     res.json(questions);
   } catch (err) {
     console.error("❌ listQuestionsOfItem error:", err);
@@ -95,7 +101,10 @@ export const listQuestionsOfItem = async (req, res) => {
 // Tạo câu hỏi cho content item
 export const createQuestionForItem = async (req, res) => {
   try {
-    const question = await Question.create({ ...req.body, content_item_id: req.params.id });
+    const question = await Question.create({
+      ...req.body,
+      content_item_id: req.params.id,
+    });
     res.status(201).json(question);
   } catch (err) {
     console.error("❌ createQuestionForItem error:", err);
@@ -106,7 +115,11 @@ export const createQuestionForItem = async (req, res) => {
 // Cập nhật câu hỏi
 export const updateQuestion = async (req, res) => {
   try {
-    const updatedQuestion = await Question.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const updatedQuestion = await Question.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true }
+    );
     if (!updatedQuestion) return res.status(404).json({ message: "Not found" });
     res.json(updatedQuestion);
   } catch (err) {
@@ -120,7 +133,7 @@ export const deleteQuestion = async (req, res) => {
   try {
     const question = await Question.findByIdAndDelete(req.params.id);
     if (!question) return res.status(404).json({ message: "Not found" });
-    res.json({ message: "Xoá question thành công"});
+    res.json({ message: "Xoá question thành công" });
   } catch (err) {
     console.error("❌ deleteQuestion error:", err);
     res.status(500).json({ message: "Server error", error: err.message });
@@ -140,7 +153,10 @@ export const listOptions = async (req, res) => {
 // Thêm một batch option cho câu hỏi
 export const addOptionsBatch = async (req, res) => {
   try {
-    const options = (req.body?.options || []).map(o => ({ ...o, question_id: req.params.qid }));
+    const options = (req.body?.options || []).map((o) => ({
+      ...o,
+      question_id: req.params.qid,
+    }));
     await QuestionOption.insertMany(options);
     res.status(201).json({ inserted: options.length });
   } catch (err) {
@@ -152,9 +168,14 @@ export const addOptionsBatch = async (req, res) => {
 // Cập nhật một option
 export const updateOption = async (req, res) => {
   try {
-    const updatedOption = await QuestionOption.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!updatedOption) return res.status(404).json({ message: "Option Not found" });
-    res.json({ message: "Xoá option question thành công", updatedOption});
+    const updatedOption = await QuestionOption.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true }
+    );
+    if (!updatedOption)
+      return res.status(404).json({ message: "Option Not found" });
+    res.json({ message: "Xoá option question thành công", updatedOption });
   } catch (err) {
     console.error("❌ updateOption error:", err);
     res.status(500).json({ message: "Server error", error: err.message });
@@ -166,7 +187,7 @@ export const deleteOption = async (req, res) => {
   try {
     const option = await QuestionOption.findByIdAndDelete(req.params.id);
     if (!option) return res.status(404).json({ message: "Not found" });
-    res.json({ message: "Xoá option question thành công"})
+    res.json({ message: "Xoá option question thành công" });
   } catch (err) {
     console.error("❌ deleteOption error:", err);
     res.status(500).json({ message: "Server error", error: err.message });
@@ -184,19 +205,25 @@ export async function getContentDetail(req, res) {
     }
 
     // Lấy danh sách câu hỏi liên quan
-    const questions = await Question.find({ content_item_id: id }).sort("order_in_item");
+    const questions = await Question.find({ content_item_id: id }).sort(
+      "order_in_item"
+    );
 
     // Lấy tất cả option của các câu hỏi này
-    const questionIds = questions.map(q => q._id);
-    const options = await QuestionOption.find({ question_id: { $in: questionIds } });
+    const questionIds = questions.map((q) => q._id);
+    const options = await QuestionOption.find({
+      question_id: { $in: questionIds },
+    });
 
     // Gộp dữ liệu cho dễ đọc
-    const questionsWithOptions = questions.map(q => ({
+    const questionsWithOptions = questions.map((q) => ({
       _id: q._id,
       question_type: q.question_type,
       question_text: q.question_text,
       order_in_item: q.order_in_item,
-      options: options.filter(o => o.question_id.toString() === q._id.toString()),
+      options: options.filter(
+        (o) => o.question_id.toString() === q._id.toString()
+      ),
     }));
 
     res.json({

@@ -57,7 +57,7 @@ export const updateFlashcard = async (req, res) => {
 
 export const deleteFlashcard = async (req, res) => {
   await Flashcard.findByIdAndDelete(req.params.id);
-  res.json({message: "Xoá Flashcard thành công! "})
+  res.json({ message: "Xoá Flashcard thành công! " });
   res.status(204).end();
 };
 
@@ -82,7 +82,9 @@ export const toggleSaveWord = async (req, res) => {
     // ✅ Kiểm tra flashcard có tồn tại
     const flashcard = await Flashcard.findById(flashcard_id);
     if (!flashcard) {
-      return res.status(404).json({ message: "Không tìm thấy flashcard để lưu" });
+      return res
+        .status(404)
+        .json({ message: "Không tìm thấy flashcard để lưu" });
     }
 
     const key = { user_id: userId, flashcard_id };
@@ -113,12 +115,13 @@ export const listSavedWordsMine = async (req, res) => {
     if (!userId)
       return res.status(401).json({ message: "Thiếu thông tin người dùng" });
 
-    const saved = await SavedWord.find({ user_id: userId.toString() }).select("flashcard_id");
+    const saved = await SavedWord.find({ user_id: userId.toString() }).select(
+      "flashcard_id"
+    );
 
-    if (!saved.length)
-      return res.json({ total: 0, items: [] });
+    if (!saved.length) return res.json({ total: 0, items: [] });
 
-    const ids = saved.map(x => x.flashcard_id);
+    const ids = saved.map((x) => x.flashcard_id);
     const flashcards = await Flashcard.find({ _id: { $in: ids } }).lean();
 
     res.json({
@@ -133,5 +136,3 @@ export const listSavedWordsMine = async (req, res) => {
     });
   }
 };
-
-
