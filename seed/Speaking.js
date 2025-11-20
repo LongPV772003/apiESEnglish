@@ -57,42 +57,46 @@ async function run() {
     let total = 0;
 
     for (const topic of topics) {
-      for (const level of levels) {
-        console.log(`🌱 Seeding Speaking content for ${level.name} - ${topic.title}`);
+      const topicLevel = levels.find(level => level._id.toString() === topic.level_id.toString());
+      if (!topicLevel) {
+        console.warn(`⚠️ No matching level for topic: ${topic.title}`);
+        continue; // Skip if there's no level
+      }
 
-        // Lấy danh sách hình ảnh và âm thanh cho cấp độ hiện tại
-        const images = speakingImages[level.code];
-        const audio = SAMPLE_AUDIO[level.code];
+      console.log(`🌱 Seeding Speaking content for ${topicLevel.name} - ${topic.title}`);
 
-        // 1️⃣ BODY TEXT CHUẨN THEO LEVEL
-        const body_text = getSpeakingBodyText(level.code);
-        const question_data = getSpeakingQuestion(level.code);
+      // Lấy danh sách hình ảnh và âm thanh cho cấp độ hiện tại
+      const images = speakingImages[topicLevel.code];
+      const audio = SAMPLE_AUDIO[topicLevel.code];
 
-        // 2️⃣ Tạo content item cho mỗi câu hỏi trong topic
-        for (let i = 0; i < images.length; i++) {
-          const content = await ContentItem.create({
-            topic_id: topic._id,
-            type: "SPEAKING_PROMPT",
-            title: `Speaking Prompt: ${topic.title} (${level.name}) - Content ${i + 1}`,
-            body_text,
-            media_image_url: images[i],
-            media_audio_url: audio[i],
-            is_published: true,
-            meta: { level: level.code, skill: "SPEAKING" },
-            level_id: level._id, // Thêm `level_id` vào ContentItem
-          });
+      // 1️⃣ BODY TEXT CHUẨN THEO LEVEL
+      const body_text = getSpeakingBodyText(topicLevel.code);
+      const question_data = getSpeakingQuestion(topicLevel.code);
 
-          // 3️⃣ Tạo câu hỏi (1 câu hỏi cho content-item)
-          const createdQuestion = await Question.create({
-            content_item_id: content._id,
-            question_type: "OPEN_ENDED",
-            question_text: question_data.text,
-            points: 1,
-            order_in_item: i + 1,
-          });
+      // 2️⃣ Tạo content item cho mỗi câu hỏi trong topic
+      for (let i = 0; i < images.length; i++) {
+        const content = await ContentItem.create({
+          topic_id: topic._id,
+          type: "SPEAKING_PROMPT",
+          title: `Speaking Prompt: ${topic.title} (${topicLevel.name}) - Content ${i + 1}`,
+          body_text,
+          media_image_url: images[i],
+          media_audio_url: audio[i],
+          is_published: true,
+          meta: { level: topicLevel.code, skill: "SPEAKING" },
+          level_id: topicLevel._id, // Ensure to link the correct level to content item
+        });
 
-          total++;
-        }
+        // 3️⃣ Tạo câu hỏi (1 câu hỏi cho content-item)
+        const createdQuestion = await Question.create({
+          content_item_id: content._id,
+          question_type: "OPEN_ENDED",
+          question_text: question_data.text,
+          points: 1,
+          order_in_item: i + 1,
+        });
+
+        total++;
       }
     }
 
@@ -140,4 +144,3 @@ function getSpeakingQuestion(level) {
 }
 
 run();
-

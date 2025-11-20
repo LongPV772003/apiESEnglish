@@ -8,4 +8,5 @@ r.post("/answer", auth(true), ctl.answerQuestion);
 r.post("/submit", auth(true), ctl.submitAttempt);
 r.post("/:id/artifacts", auth(true), ctl.addArtifact);
 r.get("/me/progress", auth(true), ctl.getMyProgress);
+r.delete("/progress/clear", ctl.clearAllProgress);
 export default r;

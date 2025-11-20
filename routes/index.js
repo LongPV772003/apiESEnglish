@@ -7,6 +7,7 @@ import vocab from "./vocabAdminRoutes.js";
 import attempts from "./attemptRoutes.js";
 import tests from "./testAdminRoutes.js";
 import result from "./resultRoutes.js";
+import userTime from "./userStudyTimeRoutes.js";
 const api = express.Router();
 api.use("/auth", auth);
 api.use("/users", users);
@@ -16,4 +17,5 @@ api.use("/vocab", vocab);
 api.use("/attempts", attempts);
 api.use("/admin/tests", tests);
 api.use("/results", result);
+api.use("/time", userTime)
 export default api;

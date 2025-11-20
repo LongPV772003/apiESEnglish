@@ -2,63 +2,80 @@ import { Results } from "../models/Results.js"; // Model lưu kết quả
 import { UserSkillProgress } from "../models/UserSkillProgress.js"; // Theo dõi tiến độ học
 import { Topic } from "../models/Topic.js"; // Lấy topic
 import { User } from "../models/User.js";
+import { ContentItem } from "../models/ContentItem.js";
 
 export const saveResult = async (req, res) => {
   try {
-    const { topic_id, score, band_score, feedback } = req.body;
+    const { topic_id, content_item_id, score, band_score, feedback } = req.body;
 
-    if (!topic_id || score === undefined || feedback === undefined)
-      return res.status(400).json({ message: "Dữ liệu không hợp lệ!" });
-
-    if (!req.user || !req.user.id)
-      return res
-        .status(400)
-        .json({ message: "User không hợp lệ hoặc không có token" });
+    // Kiểm tra dữ liệu đầu vào
+    if (!topic_id || !content_item_id || score === undefined || !feedback) {
+      return res.status(400).json({ message: "Thiếu dữ liệu bắt buộc!" });
+    }
 
     const userId = req.user.id;
 
-    // Lấy thông tin user để lấy full_name
+    // Kiểm tra user tồn tại
     const user = await User.findById(userId).select("full_name username email");
-    if (!user)
-      return res
-        .status(404)
-        .json({ message: "Không tìm thấy thông tin user." });
+    if (!user) {
+      return res.status(404).json({ message: "User không tồn tại" });
+    }
 
-    // Lấy thông tin topic + skill + level
+    // Kiểm tra topic tồn tại
     const topic = await Topic.findById(topic_id)
       .populate("skill_id")
       .populate("level_id");
-    if (!topic)
-      return res.status(404).json({ message: "Topic không tìm thấy" });
+    if (!topic) {
+      return res.status(404).json({ message: "Topic không tồn tại" });
+    }
 
-    const { skill_id, level_id } = topic;
-    if (!skill_id || !level_id)
-      return res
-        .status(400)
-        .json({
-          message: "Không tìm thấy thông tin skill hoặc level trong topic",
-        });
+    const skill = topic.skill_id;
+    const level = topic.level_id;
 
-    const skillCode = skill_id.code;
-    const levelCode = level_id.code;
-    const skillId = skill_id._id;
-    const levelId = level_id._id;
+    // Kiểm tra content_item thuộc topic (nếu cần)
+   const contentItem = await ContentItem.findOne({
+    _id: content_item_id,
+    topic_id: topic_id
+  });
 
-    // Lưu kết quả
-    const result = await Results.create({
+  if (!contentItem) {
+    return res.status(400).json({
+      message: "Content-item không tồn tại hoặc không thuộc topic này!"
+    });
+  }
+
+    // 🔁 Kiểm tra nếu user đã có kết quả cho content_item_id này thì cập nhật thay vì tạo mới
+    const existingResult = await Results.findOne({
       userId,
-      user_name: user.full_name || user.username, // ⚡ thêm tên người dùng
-      skill: skillCode,
-      level: levelCode,
-      score,
-      band_score,
-      feedback,
       topic_id,
+      content_item_id,
     });
 
-    // Cập nhật tiến độ học
+    let result;
+    if (existingResult) {
+      existingResult.score = score;
+      existingResult.band_score = band_score;
+      existingResult.feedback = feedback;
+      existingResult.created_at = new Date();
+      await existingResult.save();
+      result = existingResult;
+    } else {
+      result = await Results.create({
+        userId,
+        user_name: user.full_name || user.username,
+        skill: skill.code,
+        level: level.code,
+        score,
+        band_score,
+        feedback,
+        topic_id,
+        content_item_id,
+      });
+    }
+
+    // ➤ Cập nhật tiến độ học
     await UserSkillProgress.findOneAndUpdate(
-      { user_id: userId, skill_id: skillId, level_id: levelId, topic_id },
+      { user_id: userId, skill_id: skill._id, level_id: level._id, topic_id },
       {
         $inc: {
           total_attempts: 1,
@@ -70,22 +87,18 @@ export const saveResult = async (req, res) => {
       { upsert: true, new: true }
     );
 
-    // Trả về kết quả có thông tin người dùng
     res.status(201).json({
-      message: "Kết quả đã được lưu thành công!",
-      result: {
-        ...result.toObject(),
-        user: {
-          id: userId,
-          full_name: user.full_name,
-          username: user.username,
-          email: user.email,
-        },
-      },
+      message: existingResult
+        ? "Đã cập nhật kết quả cho content-item này!"
+        : "Đã lưu kết quả mới!",
+      result,
     });
   } catch (err) {
-    console.error("❌ Error:", err.message);
-    res.status(500).json({ message: "Lỗi lưu kết quả." });
+    console.error("❌ Lỗi khi lưu kết quả:", err.message);
+    res.status(500).json({
+      message: "Lỗi lưu kết quả.",
+      error: err.message,
+    });
   }
 };
 export const getResults = async (req, res) => {
