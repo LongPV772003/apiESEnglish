@@ -2,9 +2,15 @@ import { MockTest } from "../models/MockTest.js";
 import { MockTestAttempt } from "../models/MockTestAttempt.js";
 import { MockTestAttemptAnswer } from "../models/MockTestAttemptAnswer.js";
 import { MockTestQuestion } from "../models/MockTestQuestion.js";
-import { QuestionOption } from "../models/QuestionOption.js";
-export const listTests = async (_req, res) =>
-  res.json(await MockTest.find().sort({ created_at: -1 }));
+import { MockTestQuestionBank } from "../models/MockTestQuestionBank.js";
+export const listTests = async (_req, res) => {
+  const items = await MockTest.find().sort({ created_at: -1 });
+  const total = await MockTest.countDocuments();
+  return res.json({
+    total,
+    items
+  });
+};
 export const getTest = async (req, res) => {
   const x = await MockTest.findById(req.params.id);
   return x ? res.json(x) : res.status(404).json({ message: "Not found" });
@@ -21,12 +27,6 @@ export const deleteTest = async (req, res) => {
   await MockTest.findByIdAndDelete(req.params.id);
   res.status(204).end();
 };
-export const listTestQuestions = async (req, res) =>
-  res.json(
-    await MockTestQuestion.find({ test_id: req.params.id }).sort({
-      order_in_test: 1,
-    })
-  );
 export const addQuestionToTest = async (req, res) => {
   const { question_id, order_in_test } = req.body;
   const doc = await MockTestQuestion.create({
@@ -51,6 +51,34 @@ export const removeTestQuestion = async (req, res) => {
   await MockTestQuestion.findByIdAndDelete(req.params.id);
   res.status(204).end();
 };
+export const listTestQuestions = async (req, res) => {
+  const questions = await MockTestQuestion.find({ test_id: req.params.id })
+    .sort({ order_in_test: 1 })
+    .lean();
+
+  // Lấy ID
+  const bankIds = questions.map(q => q.bank_question_id);
+
+  const bankQuestions = await MockTestQuestionBank.find({
+    _id: { $in: bankIds }
+  }).lean();
+
+  // Map dữ liệu trả về
+  const items = questions.map(q => ({
+    mapping_id: q._id,
+    test_id: q.test_id,
+    order_in_test: q.order_in_test,
+    bank_question_id: q.bank_question_id,
+    question: bankQuestions.find(
+      b => b._id.toString() === q.bank_question_id.toString()
+    )
+  }));
+
+  return res.json({
+    total: items.length,
+    items
+  });
+};
 export const startMockTest = async (req, res) => {
   const test = await MockTest.findById(req.params.id).lean();
   if (!test) return res.status(404).json({ message: "Test not found" });
@@ -65,20 +93,24 @@ export const startMockTest = async (req, res) => {
   res.json({ attempt });
 };
 export const answerMockTest = async (req, res) => {
-  const { attempt_id, question_id, chosen_option_id } = req.body;
+  const { attempt_id, bank_question_id, chosen_option_label } = req.body;
 
-  const opt = await QuestionOption.findById(chosen_option_id).lean();
+  const question = await MockTestQuestionBank.findById(bank_question_id).lean();
+  if (!question) return res.status(404).json({ message: "Question not found" });
+
+  const opt = question.options.find(o => o.label === chosen_option_label);
   const is_correct = !!opt?.is_correct;
-  const score = is_correct ? 1 : 0;
+  const score = is_correct ? question.points : 0;
 
   const answer = await MockTestAttemptAnswer.findOneAndUpdate(
-    { attempt_id, question_id },
-    { chosen_option_id, is_correct, score },
+    { attempt_id, bank_question_id },
+    { chosen_option_label, is_correct, score },
     { upsert: true, new: true }
   );
 
   res.json(answer);
 };
+
 export const submitMockTest = async (req, res) => {
   const { attempt_id } = req.body;
 

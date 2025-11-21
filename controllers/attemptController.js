@@ -7,6 +7,8 @@ import { Flashcard } from "../models/Flashcard.js";
 import { SavedWord } from "../models/SavedWord.js";
 import { UserStudyTime } from "../models/UserStudyTime.js";
 import { ContentItem } from "../models/ContentItem.js";
+import { MockTestAttempt } from "../models/MockTestAttempt.js";
+import { MockTestAttemptAnswer } from "../models/MockTestAttemptAnswer.js";
 const autoGradeMCQ = async (question_id, chosen_option_id) => {
   const opt = await QuestionOption.findOne({
     _id: chosen_option_id,
@@ -216,7 +218,7 @@ export const getMyProgress = async (req, res) => {
         total_questions, // ⚡ tổng số câu
         progress_percent:
           p.total_attempts > 0
-            ? Math.round(((p.correct_count/10) / p.total_attempts) * 100)
+            ? Math.round(((p.correct_count / 10) / p.total_attempts) * 100)
             : 0,
         last_activity_at: p.last_activity_at,
         topic_details: p.topic_id,
@@ -240,7 +242,7 @@ export const getMyProgress = async (req, res) => {
       progress_percent:
         skillScores[k].total_attempts > 0
           ? Math.round(
-              (skillScores[k].total_score /
+              ((skillScores[k].total_score / 10) /
                 skillScores[k].total_attempts) *
                 100
             )
