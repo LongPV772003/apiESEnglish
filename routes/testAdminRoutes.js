@@ -16,4 +16,5 @@ r.post("/answer", auth(true), ctl.answerMockTest);
 r.post("/submit", auth(true), ctl.submitMockTest);
 r.get("/my", auth(true), ctl.listMyMockTests);
 r.get("/attempt/:id", auth(true), ctl.getMockTestAttemptDetail);
+r.post("/answer-multi", auth(true), ctl.answerMockTestMulti);
 export default r;

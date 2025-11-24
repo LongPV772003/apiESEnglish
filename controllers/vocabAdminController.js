@@ -15,7 +15,7 @@ export const listFlashcards = async (req, res) => {
     if (req.query.q) f.word = new RegExp(String(req.query.q), "i");
 
     const [items, total] = await Promise.all([
-      Flashcard.find(f).skip(skip).limit(limit),
+      Flashcard.find(f).skip(skip),
       Flashcard.countDocuments(f),
     ]);
 

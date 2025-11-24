@@ -111,6 +111,41 @@ export const answerMockTest = async (req, res) => {
   res.json(answer);
 };
 
+export const answerMockTestMulti = async (req, res) => {
+  const { attempt_id, answers } = req.body;
+
+  if (!attempt_id || !Array.isArray(answers)) {
+    return res.status(400).json({ message: "Invalid payload" });
+  }
+
+  const results = [];
+
+  for (const item of answers) {
+    const { bank_question_id, chosen_option_label } = item;
+
+    const question = await MockTestQuestionBank.findById(bank_question_id).lean();
+    if (!question) continue;
+
+    const opt = question.options.find(o => o.label === chosen_option_label);
+    const is_correct = !!opt?.is_correct;
+    const score = is_correct ? question.points : 0;
+
+    const saved = await MockTestAttemptAnswer.findOneAndUpdate(
+      { attempt_id, bank_question_id },
+      { chosen_option_label, is_correct, score },
+      { upsert: true, new: true }
+    );
+
+    results.push(saved);
+  }
+
+  res.json({
+    attempt_id,
+    saved_count: results.length,
+    answers: results
+  });
+};
+
 export const submitMockTest = async (req, res) => {
   const { attempt_id } = req.body;
 
@@ -153,8 +188,8 @@ export const getMockTestAttemptDetail = async (req, res) => {
     .lean();
 
   const answers = await MockTestAttemptAnswer.find({ attempt_id: attempt._id })
-    .populate("question_id")
-    .populate("chosen_option_id")
+    .populate("bank_question_id")
+    .populate("chosen_option_label")
     .lean();
 
   res.json({ attempt, answers });
