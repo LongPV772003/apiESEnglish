@@ -213,8 +213,9 @@ export const getMyProgress = async (req, res) => {
         level: p.level_id.name,
         topic_title: p.topic_id.title,
         topic_description: p.topic_id.description,
-        correct_count: p.correct_count,
+        correct_count: (p.correct_count) / 10,
         total_attempts: p.total_attempts,
+        total_score: p.total_score,
         total_questions_topic, // ⚡ tổng số câu
         progress_percent:
           p.total_attempts > 0
@@ -231,7 +232,7 @@ export const getMyProgress = async (req, res) => {
       if (!skillScores[p.skill_code]) {
         skillScores[p.skill_code] = { total_score: 0, total_attempts: 0 };
       }
-      skillScores[p.skill_code].total_score += p.correct_count;
+      skillScores[p.skill_code].total_score += p.total_score;
       skillScores[p.skill_code].total_attempts += p.total_attempts;
     }
 
@@ -285,10 +286,13 @@ export const getMyProgress = async (req, res) => {
       daily: days.reverse(),
     };
     // Trả ra bài thi thử
-    const mockAttempts = await MockTestAttempt.find({ user_id: userId })
-      .populate("test_id")
-      .sort({ submitted_at: -1 })
-      .lean();
+    const mockAttempts = await MockTestAttempt.find({
+      user_id: userId,
+      status: "SUBMITTED"     // ✔ chỉ lấy bài đã nộp
+    })
+    .populate("test_id")
+    .sort({ submitted_at: -1 })
+    .lean();
 
     const mock_tests = [];
 

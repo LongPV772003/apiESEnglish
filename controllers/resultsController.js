@@ -172,7 +172,7 @@ export const saveResult = async (req, res) => {
         $inc: {
           total_attempts: 1,
           total_questions_done: isFirstTime ? 1 : 0,
-          correct_count: score,
+          correct_count: score > 0 ? 10 : 0,
           total_score: score
         },
         $set: { last_activity_at: new Date() }
