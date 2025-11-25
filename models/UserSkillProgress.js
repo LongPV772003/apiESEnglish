@@ -30,6 +30,7 @@ const userSkillProgressSchema = new mongoose.Schema(
 
     total_attempts: { type: Number, default: 0 },
     correct_count: { type: Number, default: 0 },
+    total_questions_done: { type: Number, default: 0 },
     total_score: { type: Number, default: 0 },
 
     last_activity_at: { type: Date, default: Date.now },

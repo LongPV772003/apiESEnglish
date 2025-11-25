@@ -203,7 +203,7 @@ export const getMyProgress = async (req, res) => {
     const progress = [];
 
     for (const p of progressRaw) {
-      const total_questions = await ContentItem.countDocuments({
+      const total_questions_topic = await ContentItem.countDocuments({
         topic_id: p.topic_id?._id,
       });
 
@@ -214,8 +214,8 @@ export const getMyProgress = async (req, res) => {
         topic_title: p.topic_id.title,
         topic_description: p.topic_id.description,
         correct_count: p.correct_count,
-        total_lessons: p.total_attempts,
-        total_questions, // ⚡ tổng số câu
+        total_attempts: p.total_attempts,
+        total_questions_topic, // ⚡ tổng số câu
         progress_percent:
           p.total_attempts > 0
             ? Math.round(((p.correct_count / 10) / p.total_attempts) * 100)
@@ -232,7 +232,7 @@ export const getMyProgress = async (req, res) => {
         skillScores[p.skill_code] = { total_score: 0, total_attempts: 0 };
       }
       skillScores[p.skill_code].total_score += p.correct_count;
-      skillScores[p.skill_code].total_attempts += p.total_lessons;
+      skillScores[p.skill_code].total_attempts += p.total_attempts;
     }
 
     const skills_summary = Object.keys(skillScores).map((k) => ({
