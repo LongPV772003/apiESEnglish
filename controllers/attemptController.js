@@ -274,7 +274,7 @@ export const getMyProgress = async (req, res) => {
 
       skills_summary.push({
         skill: code,
-        total_score: s.total_score,
+        total_score: s.total_score * 10,
         total_attempts: s.total_attempts,
         
         total_questions_done: s.total_questions_done,      
