@@ -25,31 +25,107 @@ export const updateTest = async (req, res) =>
   );
 export const deleteTest = async (req, res) => {
   await MockTest.findByIdAndDelete(req.params.id);
-  res.status(204).end();
-};
-export const addQuestionToTest = async (req, res) => {
-  const { question_id, order_in_test } = req.body;
-  const doc = await MockTestQuestion.create({
-    test_id: req.params.id,
-    question_id,
-    order_in_test,
+   return res.status(200).json({
+    message: "Xoá đề thi thành công"
   });
-  res.status(201).json(doc);
 };
-export const reorderTestQuestions = async (req, res) => {
-  const { items } = req.body;
-  await Promise.all(
-    items.map((x) =>
-      MockTestQuestion.findByIdAndUpdate(x._id, {
-        order_in_test: x.order_in_test,
-      })
-    )
-  );
-  res.json({ updated: items.length });
+export const createQuestionAndAddToTest = async (req, res) => {
+  try {
+    const test_id = req.params.id;
+    const { question_text, points, options, order_in_test } = req.body;
+
+    if (!question_text || !Array.isArray(options) || !order_in_test) {
+      return res.status(400).json({ message: "Thiếu dữ liệu!" });
+    }
+
+    // 1) Tạo câu hỏi trong Bank
+    const newQuestion = await MockTestQuestionBank.create({
+      question_text,
+      points: points || 1,
+      options
+    });
+
+    // 2) Add vào Mock Test
+    const mapping = await MockTestQuestion.create({
+      test_id,
+      bank_question_id: newQuestion._id,
+      order_in_test
+    });
+
+    return res.status(201).json({
+      message: "Tạo câu hỏi + thêm vào bài test thành công",
+      question: newQuestion,
+      mapping
+    });
+
+  } catch (err) {
+    console.error("createQuestionAndAddToTest error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
 };
+
+export const updateBankQuestion = async (req, res) => {
+  try {
+    const { id } = req.params;   
+    const { question_text, points, options } = req.body;
+
+    const updated = await MockTestQuestionBank.findByIdAndUpdate(
+      id,
+      { question_text, points, options },
+      { new: true }
+    );
+
+    if (!updated)
+      return res.status(404).json({ message: "Câu hỏi không tồn tại!" });
+
+    res.json({
+      message: "Cập nhật câu hỏi thành công",
+      question: updated
+    });
+  } catch (err) {
+    console.error("updateBankQuestion error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
+
 export const removeTestQuestion = async (req, res) => {
-  await MockTestQuestion.findByIdAndDelete(req.params.id);
-  res.status(204).end();
+  try {
+    const { id } = req.params;
+
+    const mapping = await MockTestQuestion.findByIdAndDelete(id);
+
+    if (!mapping) {
+      return res.status(404).json({ message: "Mapping không tồn tại!" });
+    }
+
+    res.json({
+      message: "Đã xoá câu hỏi khỏi bài test",
+      mapping_id: id
+    });
+
+  } catch (err) {
+    console.error("removeTestQuestion error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
+export const deleteBankQuestion = async (req, res) => {
+  try {
+    const { bank_question_id } = req.params;
+
+    const bankQ = await MockTestQuestionBank.findByIdAndDelete(bank_question_id);
+    if (!bankQ)
+      return res.status(404).json({ message: "Câu hỏi không tồn tại!" });
+
+    await MockTestQuestion.deleteMany({ bank_question_id });
+
+    res.json({
+      message: "Đã xoá câu hỏi khỏi Bank và gỡ khỏi toàn bộ bài test"
+    });
+
+  } catch (err) {
+    console.error("deleteBankQuestion error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
 };
 export const listTestQuestions = async (req, res) => {
   const questions = await MockTestQuestion.find({ test_id: req.params.id })

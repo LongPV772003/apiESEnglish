@@ -17,4 +17,5 @@ r.get("/topics/:id", ctl.getOneTopic);
 r.post("/topics", auth(true), requireAdmin, ctl.createTopic);
 r.put("/topics/:id", auth(true), requireAdmin, ctl.updateTopic);
 r.delete("/topics/:id", auth(true), requireAdmin, ctl.deleteTopic);
+r.post("/topicFlashcard", auth(true), ctl.createFlashcardTopic);
 export default r;

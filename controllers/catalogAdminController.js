@@ -130,3 +130,29 @@ export const getOneTopic = async (req, res) => {
     res.status(500).json({ message: "Lỗi khi lấy thông tin topic." });
   }
 };
+export const createFlashcardTopic = async (req, res) => {
+  try {
+    const { skill_id, level_id, title, description } = req.body;
+
+    if (!skill_id || !level_id || !title) {
+      return res.status(400).json({ message: "Thiếu dữ liệu bắt buộc!" });
+    }
+
+    const topic = await Topic.create({
+      skill_id,
+      level_id,
+      title,
+      description,
+      type: "FLASHCARD" 
+    });
+
+    return res.status(201).json({
+      message: "Tạo topic flashcard thành công",
+      topic,
+    });
+  } catch (err) {
+    console.error("❌ Lỗi createFlashcardTopic:", err);
+    res.status(500).json({ message: "Lỗi khi tạo topic flashcard." });
+  }
+};
+
