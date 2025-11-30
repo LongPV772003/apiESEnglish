@@ -74,7 +74,7 @@ export async function getAllUsers(req, res) {
 // Thêm người dùng mới (Chỉ cho admin)
 export async function addUser(req, res) {
   try {
-    const { username, email, password, role } = req.body;
+    const { username, email, password, role, gender } = req.body;
 
     // Kiểm tra role hợp lệ
     if (role !== "ADMIN" && role !== "LEARNER") {
@@ -89,8 +89,9 @@ export async function addUser(req, res) {
     const newUser = new User({
       username,
       email,
-      password_hash, // Lưu password đã mã hóa
+      password_hash,
       role,
+      gender
     });
 
     // Lưu vào cơ sở dữ liệu

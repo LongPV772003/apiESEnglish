@@ -216,8 +216,8 @@ export const getMyProgress = async (req, res) => {
         total_score: p.total_score,
         total_questions_topic, // ⚡ tổng số câu
         progress_percent:
-          p.total_attempts > 0
-            ? Math.round(((p.correct_count / 10) / p.total_attempts) * 100)
+          total_questions_topic > 0
+            ? Math.round(((p.correct_count / 10) / total_questions_topic) * 100)
             : 0,
         last_activity_at: p.last_activity_at,
         topic_details: p.topic_id,
