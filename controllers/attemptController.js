@@ -9,6 +9,7 @@ import { UserStudyTime } from "../models/UserStudyTime.js";
 import { ContentItem } from "../models/ContentItem.js";
 import { MockTestAttempt } from "../models/MockTestAttempt.js";
 import { MockTestAttemptAnswer } from "../models/MockTestAttemptAnswer.js";
+import { Topic } from "../models/Topic.js";
 const autoGradeMCQ = async (question_id, chosen_option_id) => {
   const opt = await QuestionOption.findOne({
     _id: chosen_option_id,
@@ -203,52 +204,88 @@ export const getMyProgress = async (req, res) => {
     const progress = [];
 
     for (const p of progressRaw) {
-      const total_questions_topic = await ContentItem.countDocuments({
-        topic_id: p.topic_id?._id,
-      });
 
-      progress.push({
-        skill_code: p.skill_id.code,
-        skill_name: p.skill_id.name,
-        level: p.level_id.name,
-        correct_count: (p.correct_count) / 10,
-        total_attempts: p.total_attempts,
-        total_score: p.total_score,
-        total_questions_topic, // ⚡ tổng số câu
-        progress_percent:
-          total_questions_topic > 0
-            ? Math.round(((p.correct_count / 10) / total_questions_topic) * 100)
-            : 0,
-        last_activity_at: p.last_activity_at,
-        topic_details: p.topic_id,
-      });
-    }
+    const total_questions_topic = await ContentItem.countDocuments({
+      topic_id: p.topic_id?._id,
+    });
 
+    const correct_count_lesson = p.correct_count / 10;
+
+    const progress_percent =
+      total_questions_topic > 0
+        ? Math.round((correct_count_lesson / total_questions_topic) * 100)
+        : 0;
+
+    progress.push({
+      skill_code: p.skill_id.code,
+      skill_name: p.skill_id.name,
+      level: p.level_id.name,
+      correct_count: correct_count_lesson,
+      total_attempts: p.total_attempts,
+      total_score: p.total_score,
+      total_questions_topic,
+      progress_percent,
+      last_activity_at: p.last_activity_at,
+      topic_details: p.topic_id,
+    });
+  }
     // 2) Tổng điểm theo skill
     const skillScores = {};
+
     for (const p of progress) {
       if (!skillScores[p.skill_code]) {
-        skillScores[p.skill_code] = { total_score: 0, total_attempts: 0 };
+        skillScores[p.skill_code] = {
+          total_score: 0,
+          total_attempts: 0,
+          total_questions_done: 0,     
+          progress_percent_list: [],
+          skill_id: p.topic_details.skill_id 
+        };
       }
+
       skillScores[p.skill_code].total_score += p.total_score;
       skillScores[p.skill_code].total_attempts += p.total_attempts;
+      skillScores[p.skill_code].total_questions_done += p.total_questions_topic;
+      skillScores[p.skill_code].progress_percent_list.push(p.progress_percent);
     }
 
-    const skills_summary = Object.keys(skillScores).map((k) => ({
-      skill: k,
-      total_score: skillScores[k].total_score,
-      total_attempts: skillScores[k].total_attempts,
-      progress_percent:
-        skillScores[k].total_attempts > 0
+
+        const skills_summary = [];
+
+    for (const code of Object.keys(skillScores)) {
+      const s = skillScores[code];
+      
+      // 1) Lấy tất cả topic của skill từ DB
+      const allTopics = await Topic.find({ skill_id: s.skill_id }).select("_id");
+
+      // 2) Lấy tổng tất cả content-item của skill
+      const total_questions_skill_all_topics = await ContentItem.countDocuments({
+        topic_id: { $in: allTopics.map(t => t._id) }
+      });
+
+      // 3) Tính trung bình %
+      const avg_progress =
+        s.progress_percent_list.length > 0
           ? Math.round(
-              ((skillScores[k].total_score / 10) /
-                skillScores[k].total_attempts) *
-                100
+              s.progress_percent_list.reduce((a, b) => a + b, 0) /
+                s.progress_percent_list.length
             )
-          : 0,
-    }));
+          : 0;
+
+      skills_summary.push({
+        skill: code,
+        total_score: s.total_score,
+        total_attempts: s.total_attempts,
+        
+        total_questions_done: s.total_questions_done,      
+        total_questions_skill_all_topics,                    
+        
+        avg_progress_percent: avg_progress
+      });
+    }
     const total_user_score = Object.values(skillScores)
       .reduce((sum, s) => sum + s.total_score, 0);
+
     const total_user_attempts = Object.values(skillScores)
       .reduce((sum, s) => sum + s.total_attempts, 0);
 
