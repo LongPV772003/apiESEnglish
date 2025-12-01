@@ -240,11 +240,11 @@ export const getMyProgress = async (req, res) => {
         skill_code: p.skill_id.code,
         skill_name: p.skill_id.name,
         level: p.level_id.name,
+        total_attempts: p.total_attempts,
         point: correct_count * 10,
         correct_count,
         total_questions_topic,
         progress_percent,
-
         last_activity_at: p.last_activity_at,
         topic_details: p.topic_id,
       });
@@ -279,20 +279,16 @@ export const getMyProgress = async (req, res) => {
       const total_questions_skill_all_topics = await ContentItem.countDocuments({
         topic_id: { $in: allTopics.map((t) => t._id) },
       });
-
       // 3) Trung bình % tiến độ từ từng topic
-      const avg_progress =
-        s.progress_percent_list.length > 0
-          ? Math.round(
-              s.progress_percent_list.reduce((a, b) => a + b, 0) /
-                s.progress_percent_list.length
-            )
-          : 0;
+      const avg_progress = Number(
+        ((s.total_done / total_questions_skill_all_topics) * 100).toFixed(2)
+      );
 
       skills_summary.push({
         skill: code,
         total_done: s.total_done,
         total_point: s.total_done * 10,
+        total_not_done: total_questions_skill_all_topics - s.total_done,
         total_questions_skill_all_topics,
         avg_progress_percent: avg_progress,
       });
@@ -300,7 +296,7 @@ export const getMyProgress = async (req, res) => {
 
     // ---------- TÍNH TỔNG TIẾN ĐỘ TOÀN USER ----------
     const total_user_score = skills_summary.reduce(
-      (sum, s) => (sum + s.total_done) * 10,
+      (sum, s) => (sum + (s.total_done * 10)) ,
       0
     );
     const total_user_questions = skills_summary.reduce(
