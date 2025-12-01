@@ -240,7 +240,7 @@ export const getMyProgress = async (req, res) => {
         skill_code: p.skill_id.code,
         skill_name: p.skill_id.name,
         level: p.level_id.name,
-        total_attempts: p.total_attempts,
+        total_attempts: p.total_attempts / total_questions_topic ,
         point: correct_count * 10,
         correct_count,
         total_questions_topic,
