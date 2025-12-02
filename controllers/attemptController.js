@@ -10,6 +10,8 @@ import { ContentItem } from "../models/ContentItem.js";
 import { MockTestAttempt } from "../models/MockTestAttempt.js";
 import { MockTestAttemptAnswer } from "../models/MockTestAttemptAnswer.js";
 import { Topic } from "../models/Topic.js";
+import { Skill } from "../models/Skill.js";
+import { Results } from "../models/Results.js";  
 const autoGradeMCQ = async (question_id, chosen_option_id) => {
   const opt = await QuestionOption.findOne({
     _id: chosen_option_id,
@@ -86,110 +88,6 @@ export const addArtifact = async (req, res) => {
   const art = await AttemptArtifact.create({ attempt_id: id, ...req.body });
   res.status(201).json(art);
 };
-// export const getMyProgress = async (req, res) => {
-//   try {
-//     const userId = req.user.id; // Lấy user_id từ decoded token
-
-//     // 1️⃣ Lấy thông tin tiến độ học của người dùng từ UserSkillProgress và populate skill_id, level_id, topic_id
-//     const progressList = await UserSkillProgress.find({ user_id: userId })
-//       .populate("skill_id") // Populate thông tin về skill
-//       .populate("level_id") // Populate thông tin về level
-//       .populate("topic_id") // Populate thông tin về topic
-//       .lean();
-
-//     const progress = [];
-
-//     // 2️⃣ Duyệt qua các tiến độ học của người dùng
-//     for (const p of progressList) {
-//       // Lấy điểm và nhận xét của mỗi topic
-//       const recentAttempt = await UserAttempt.findOne({
-//         user_id: userId,
-//         skill_id: p.skill_id?._id,
-//         level_id: p.level_id?._id,
-//         topic_id: p.topic_id?._id, // Lọc theo topic_id
-//       })
-//         .sort({ submitted_at: -1 }) // Sắp xếp để lấy attempt gần nhất
-//         .lean();
-
-//       const score = recentAttempt ? recentAttempt.score : 0;
-//       const feedback = recentAttempt
-//         ? recentAttempt.feedback
-//         : "No feedback provided";
-
-//       const progress_percent =
-//         p.total_attempts > 0
-//           ? Math.round((p.correct_count / p.total_attempts) * 100)
-//           : 0;
-
-//       // Lưu thông tin tiến độ của từng topic
-//       progress.push({
-//         skill_code: p.skill_id.code,
-//         skill_name: p.skill_id.name,
-//         level: p.level_id?.name || "Unknown",
-//         topic_title: p.topic_id?.title || "No Title",
-//         topic_description: p.topic_id?.description || "No Description",
-//         progress_percent,
-//         completed_lessons: p.correct_count,
-//         total_lessons: p.total_attempts,
-//         score, // Điểm của topic
-//         feedback, // Nhận xét của topic
-//         topic_details: p.topic_id || {}, // Thêm tất cả thông tin của topic_id
-//       });
-//     }
-
-//     // 3️⃣ Tính tổng điểm mock tests (điểm từ tiến độ học)
-//     const mock_tests = {
-//       total_score: progress.reduce(
-//         (sum, s) => sum + (s.progress_percent || 0),
-//         0
-//       ),
-//       skills: progress.map((s) => ({
-//         skill: s.skill_name,
-//         score: s.progress_percent,
-//       })),
-//     };
-
-//     const savedWords = await SavedWord.find({ user_id: userId })
-//       .select("flashcard_id") // Lấy thông tin flashcard_id đã lưu
-//       .lean();
-
-//     if (!savedWords.length) {
-//       return res.json({ progress, mock_tests, flashcards: [] }); // Nếu không có từ đã lưu
-//     }
-
-//     // 5️⃣ Truy vấn các flashcards đã lưu và nhóm theo topic_id
-//     const flashcardsRaw = await Flashcard.find({
-//       _id: { $in: savedWords.map((s) => s.flashcard_id) },
-//     })
-//       .populate("topic_id") // Populate để lấy thông tin về topic_id
-//       .lean();
-
-//     const grouped = {};
-//     for (const f of flashcardsRaw) {
-//       const topicName = f.topic_id?.title || "General";
-//       if (!grouped[topicName]) grouped[topicName] = [];
-//       grouped[topicName].push({
-//         words: f.word,
-//         phonetic: f.phonetic,
-//       });
-//     }
-
-//     const flashcards = Object.keys(grouped).map((topic) => ({
-//       topic,
-//       words: grouped[topic],
-//     }));
-
-//     // 5️⃣ Trả về dữ liệu tiến độ học, điểm và nhận xét cho từng topic, flashcards
-//     res.json({
-//       progress, // Trả thông tin về điểm và nhận xét cho từng topic
-//       mock_tests,
-//       flashcards,
-//     });
-//   } catch (err) {
-//     console.error("getMyProgress error:", err);
-//     res.status(500).json({ message: "Server error", error: err.message });
-//   }
-// };
 export const getMyProgress = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -203,20 +101,22 @@ export const getMyProgress = async (req, res) => {
 
     const progress = [];
 
-    // ---------- XỬ LÝ TIẾN ĐỘ TỪNG TOPIC ----------
     for (const p of progressRaw) {
       const topicId = p.topic_id?._id;
       if (!topicId) continue;
 
-      // 1) Lấy toàn bộ content-item thuộc topic
+      // 1) Toàn bộ content-item của topic
       const contentItems = await ContentItem.find({ topic_id: topicId }).lean();
       const total_questions_topic = contentItems.length;
 
-      // 2) Đếm số content-item đã DONE (lấy attempt gần nhất)
       let correct_count = 0;
 
       for (const ci of contentItems) {
-        const latestAttempt = await UserAttempt.findOne({
+
+        // ================================
+        // A) CHECK MCQ (Listening / Reading)
+        // ================================
+        const latestMCQ = await UserAttempt.findOne({
           user_id: userId,
           topic_id: topicId,
           content_item_id: ci._id,
@@ -225,12 +125,27 @@ export const getMyProgress = async (req, res) => {
           .sort({ submitted_at: -1 })
           .lean();
 
-        if (latestAttempt && latestAttempt.score >= 5) {
+        if (latestMCQ && latestMCQ.score >= 5) {
+          correct_count++;
+          continue; // Không cần check Writing/Speaking nữa
+        }
+
+        // ==========================================
+        // B) CHECK WRITING / SPEAKING (từ Results)
+        // ==========================================
+        const latestWS = await Results.findOne({
+          userId,
+          topic_id: topicId,
+          content_item_id: ci._id,
+        })
+          .sort({ created_at: -1 })
+          .lean();
+
+        if (latestWS && latestWS.score > 0) {
           correct_count++;
         }
       }
 
-      // 3) Tính %
       const progress_percent =
         total_questions_topic > 0
           ? Math.round((correct_count / total_questions_topic) * 100)
@@ -240,9 +155,8 @@ export const getMyProgress = async (req, res) => {
         skill_code: p.skill_id.code,
         skill_name: p.skill_id.name,
         level: p.level_id.name,
-        total_attempts: p.total_attempts / total_questions_topic ,
-        point: correct_count * 10,
         correct_count,
+        point: correct_count * 10,
         total_questions_topic,
         progress_percent,
         last_activity_at: p.last_activity_at,
@@ -267,30 +181,44 @@ export const getMyProgress = async (req, res) => {
       skillScores[p.skill_code].progress_percent_list.push(p.progress_percent);
     }
 
+    const allSkills = await Skill.find().lean();
+
     const skills_summary = [];
 
-    for (const code of Object.keys(skillScores)) {
-      const s = skillScores[code];
+    for (const skill of allSkills) {
+      const code = skill.code;
 
-      // 1) Lấy tất cả topic thuộc skill
-      const allTopics = await Topic.find({ skill_id: s.skill_id }).select("_id");
+      // Nếu user chưa có data → gán default
+      const s = skillScores[code] || {
+        total_done: 0,
+        skill_id: skill._id
+      };
 
-      // 2) Tổng số content-item của toàn skill
+      // 1) Lấy topic thuộc skill
+      const topicIds = await Topic.find({ skill_id: s.skill_id }).select("_id");
+
+      // 2) Tổng số câu của toàn skill (từ tất cả content_item)
       const total_questions_skill_all_topics = await ContentItem.countDocuments({
-        topic_id: { $in: allTopics.map((t) => t._id) },
+        topic_id: { $in: topicIds.map(t => t._id) }
       });
-      // 3) Trung bình % tiến độ từ từng topic
-      const avg_progress = Number(
-        ((s.total_done / total_questions_skill_all_topics) * 100).toFixed(2)
-      );
+
+      // 3) Số câu đã làm + chưa làm
+      const total_done = s.total_done;
+      const total_not_done = Math.max(total_questions_skill_all_topics - total_done, 0);
+
+      // 4) % tiến độ
+      const avg_progress_percent =
+        total_questions_skill_all_topics > 0
+          ? Number(((total_done / total_questions_skill_all_topics) * 100).toFixed(2))
+          : 0;
 
       skills_summary.push({
         skill: code,
-        total_done: s.total_done,
-        total_point: s.total_done * 10,
-        total_not_done: total_questions_skill_all_topics - s.total_done,
+        total_done,
+        total_point: total_done * 10,
+        total_not_done,
         total_questions_skill_all_topics,
-        avg_progress_percent: avg_progress,
+        avg_progress_percent
       });
     }
 

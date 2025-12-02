@@ -18,6 +18,11 @@ const resultSchema = new mongoose.Schema({
     ref: "topics",
     required: true,
   },
+  content_item_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "content_items", // hoặc "contentitems" tuỳ model ContentItem bạn đặt
+    required: true,
+  },
   score: { type: Number, required: true },
   band_score: { type: Number, min: 0, max: 9 },
   feedback: { type: String, required: true },
