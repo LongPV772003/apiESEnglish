@@ -92,7 +92,7 @@ export const getMyProgress = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    // 1) Lấy UserSkillProgress
+    // Lấy toàn bộ progress theo Topic
     const progressRaw = await UserSkillProgress.find({ user_id: userId })
       .populate("skill_id")
       .populate("level_id")
@@ -105,44 +105,45 @@ export const getMyProgress = async (req, res) => {
       const topicId = p.topic_id?._id;
       if (!topicId) continue;
 
-      // 1) Toàn bộ content-item của topic
+      // Lấy toàn bộ content-item của topic
       const contentItems = await ContentItem.find({ topic_id: topicId }).lean();
       const total_questions_topic = contentItems.length;
 
       let correct_count = 0;
+      let total_point = 0;
 
       for (const ci of contentItems) {
-
-        // ================================
-        // A) CHECK MCQ (Listening / Reading)
-        // ================================
+        
+        // 1. Check MCQ
         const latestMCQ = await UserAttempt.findOne({
           user_id: userId,
           topic_id: topicId,
           content_item_id: ci._id,
-          status: "SUBMITTED",
+          status: "SUBMITTED"
         })
           .sort({ submitted_at: -1 })
           .lean();
 
-        if (latestMCQ && latestMCQ.score >= 5) {
-          correct_count++;
-          continue; // Không cần check Writing/Speaking nữa
+        if (latestMCQ) {
+          total_point += latestMCQ.score;
+
+          if (latestMCQ.score >= 5) correct_count++;
+          continue;
         }
 
-        // ==========================================
-        // B) CHECK WRITING / SPEAKING (từ Results)
-        // ==========================================
+        // 2. Check Writing / Speaking
         const latestWS = await Results.findOne({
           userId,
           topic_id: topicId,
-          content_item_id: ci._id,
+          content_item_id: ci._id
         })
           .sort({ created_at: -1 })
           .lean();
 
-        if (latestWS && latestWS.score > 0) {
-          correct_count++;
+        if (latestWS) {
+          total_point += latestWS.score;
+
+          if (latestWS.score > 0) correct_count++;
         }
       }
 
@@ -150,13 +151,19 @@ export const getMyProgress = async (req, res) => {
         total_questions_topic > 0
           ? Math.round((correct_count / total_questions_topic) * 100)
           : 0;
+      let value = p.total_attempts / total_questions_topic;
 
+      const total_attempts = 
+        value === 1 ? 1 :
+        value < 2 ? 2 :
+        Math.ceil(value);
       progress.push({
         skill_code: p.skill_id.code,
         skill_name: p.skill_id.name,
         level: p.level_id.name,
         correct_count,
-        point: correct_count * 10,
+        total_attempts,
+        point: total_point,     
         total_questions_topic,
         progress_percent,
         last_activity_at: p.last_activity_at,
@@ -164,74 +171,68 @@ export const getMyProgress = async (req, res) => {
       });
     }
 
-    // ---------- TỔNG HỢP TIẾN ĐỘ THEO SKILL ----------
+
+    // ===== TÍNH THEO SKILL =====
+    const allSkills = await Skill.find().lean();
     const skillScores = {};
 
-    for (const p of progress) {
-      if (!skillScores[p.skill_code]) {
-        skillScores[p.skill_code] = {
-          total_done: 0,
-          total_questions_skill_all_topics: 0,
-          progress_percent_list: [],
-          skill_id: p.topic_details.skill_id,
-        };
-      }
-
-      skillScores[p.skill_code].total_done += p.correct_count;
-      skillScores[p.skill_code].progress_percent_list.push(p.progress_percent);
+    for (const skill of allSkills) {
+      skillScores[skill.code] = {
+        total_done: 0,
+        total_point: 0,
+        total_questions_skill_all_topics: 0,
+        skill_id: skill._id
+      };
     }
 
-    const allSkills = await Skill.find().lean();
+    // Gộp dữ liệu từ progress
+    for (const p of progress) {
+      skillScores[p.skill_code].total_done += p.correct_count;
+      skillScores[p.skill_code].total_point += p.point;
+    }
 
     const skills_summary = [];
 
     for (const skill of allSkills) {
       const code = skill.code;
+      const s = skillScores[code];
 
-      // Nếu user chưa có data → gán default
-      const s = skillScores[code] || {
-        total_done: 0,
-        skill_id: skill._id
-      };
-
-      // 1) Lấy topic thuộc skill
       const topicIds = await Topic.find({ skill_id: s.skill_id }).select("_id");
 
-      // 2) Tổng số câu của toàn skill (từ tất cả content_item)
       const total_questions_skill_all_topics = await ContentItem.countDocuments({
         topic_id: { $in: topicIds.map(t => t._id) }
       });
 
-      // 3) Số câu đã làm + chưa làm
-      const total_done = s.total_done;
-      const total_not_done = Math.max(total_questions_skill_all_topics - total_done, 0);
+      s.total_questions_skill_all_topics = total_questions_skill_all_topics;
 
-      // 4) % tiến độ
+      const total_not_done =
+        total_questions_skill_all_topics - s.total_done;
+
       const avg_progress_percent =
         total_questions_skill_all_topics > 0
-          ? Number(((total_done / total_questions_skill_all_topics) * 100).toFixed(2))
+          ? Number(((s.total_done / total_questions_skill_all_topics) * 100).toFixed(2))
           : 0;
 
       skills_summary.push({
         skill: code,
-        total_done,
-        total_point: total_done * 10,
+        total_done: s.total_done,
+        total_point: s.total_point,       // ✔ tổng điểm theo skill
         total_not_done,
         total_questions_skill_all_topics,
         avg_progress_percent
       });
     }
 
-    // ---------- TÍNH TỔNG TIẾN ĐỘ TOÀN USER ----------
+    // Tổng điểm toàn user
     const total_user_score = skills_summary.reduce(
-      (sum, s) => (sum + (s.total_done * 10)) ,
+      (sum, s) => sum + s.total_point,
       0
     );
+
     const total_user_questions = skills_summary.reduce(
       (sum, s) => sum + s.total_questions_skill_all_topics,
       0
     );
-
     // ---------- HỌC THỜI GIAN TRONG 7 NGÀY ----------
     const now = new Date();
     const days = [];
@@ -298,11 +299,13 @@ export const getMyProgress = async (req, res) => {
       study_time,
       mock_tests,
     });
+
   } catch (err) {
     console.error("getMyProgress error:", err);
-    return res.status(500).json({ message: "Server error", error: err.message });
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 };
+
 export const clearAllProgress = async (req, res) => {
   try {
     const result = await UserSkillProgress.deleteMany({});
