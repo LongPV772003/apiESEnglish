@@ -11,10 +11,7 @@ export const mailer = nodemailer.createTransport({
   },
 });
 
-/**
- * type = "register" | "resetPassword"
- */
-export async function sendVerifyEmail(email, code, type = "register") {
+export async function sendVerifyCode(email, code, type = "register") {
   const template = templates[type];
 
   if (!template) throw new Error("Invalid email template type");

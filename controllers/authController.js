@@ -211,7 +211,7 @@ export async function forgotPassword(req, res) {
     });
 
     // Gửi email loại "reset password"
-    await sendVerifyEmail(email, code, "resetPassword");
+    await sendVerifyCode(email, code, "resetPassword");
 
     res.json({ message: "Mã xác minh đã được gửi đến email của bạn." });
 
