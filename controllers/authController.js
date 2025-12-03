@@ -154,35 +154,6 @@ export async function login(req, res) {
     res.status(500).json({ message: "Lỗi hệ thống" });
   }
 }
-// Đặt lại mật khẩu (sau khi xác minh OTP)
-export async function resetPassword(req, res) {
-  try {
-    const { email, new_password } = req.body;
-
-    if (!email || !new_password)
-      return res.status(400).json({ message: "Thiếu email hoặc mật khẩu mới." });
-
-    const verify = await VerifyCode.findOne({ email, verified: true });
-    if (!verify)
-      return res.status(400).json({ message: "Email chưa được xác minh OTP." });
-
-    const user = await User.findOne({ email });
-    if (!user)
-      return res.status(404).json({ message: "Không tìm thấy người dùng." });
-
-    const hash = await bcrypt.hash(new_password, 10);
-    user.password_hash = hash;
-    await user.save();
-
-    await VerifyCode.deleteMany({ email });
-
-    res.json({ message: "Đặt lại mật khẩu thành công." });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Lỗi hệ thống, vui lòng thử lại sau." });
-  }
-}
-
 
 // Đổi mật khẩu khi đã đăng nhập
 export async function changePassword(req, res) {
@@ -208,3 +179,104 @@ export async function changePassword(req, res) {
     res.status(500).json({ message: "Lỗi hệ thống." });
   }
 }
+// Quên mật khẩu - gửi mã OTP
+export async function forgotPassword(req, res) {
+  try {
+    const { email } = req.body;
+
+    if (!email)
+      return res.status(400).json({ message: "Vui lòng nhập email để lấy lại mật khẩu." });
+
+    if (!validator.isEmail(email))
+      return res.status(400).json({ message: "Email không hợp lệ." });
+
+    // Kiểm tra user có tồn tại không
+    const user = await User.findOne({ email });
+    if (!user)
+      return res.status(404).json({ message: "Email chưa được đăng ký." });
+
+    // Tạo mã OTP
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expired_at = new Date(Date.now() + 10 * 60 * 1000);
+
+    // Xoá mã cũ
+    await VerifyCode.deleteMany({ email });
+
+    // Lưu mã mới
+    await VerifyCode.create({
+      email,
+      code,
+      expired_at,
+      verified: false,
+    });
+
+    // Gửi email
+    await sendVerifyCode(email, code);
+
+    res.json({ message: "Mã xác minh đã được gửi đến email của bạn." });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Lỗi hệ thống." });
+  }
+}
+export async function verifyResetCode(req, res) {
+  try {
+    const { email, code } = req.body;
+
+    if (!email || !code)
+      return res.status(400).json({ message: "Thiếu email hoặc mã xác minh." });
+
+    const record = await VerifyCode.findOne({ email }).sort({ createdAt: -1 });
+
+    if (!record)
+      return res.status(400).json({ message: "Không tìm thấy mã xác minh." });
+
+    if (record.expired_at < new Date())
+      return res.status(400).json({ message: "Mã xác minh đã hết hạn." });
+
+    if (record.code !== code)
+      return res.status(400).json({ message: "Mã xác minh không đúng." });
+
+    record.verified = true;
+    await record.save();
+
+    res.json({ message: "Xác minh lấy lại mật khẩu thành công." });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Lỗi hệ thống." });
+  }
+}
+export async function resetPassword(req, res) {
+  try {
+    const { email, new_password } = req.body;
+
+    if (!email || !new_password)
+      return res.status(400).json({ message: "Thiếu email hoặc mật khẩu mới." });
+
+    const verify = await VerifyCode.findOne({ email, verified: true });
+
+    if (!verify)
+      return res.status(400).json({ message: "OTP chưa được xác minh." });
+
+    const user = await User.findOne({ email });
+    if (!user)
+      return res.status(404).json({ message: "Không tìm thấy người dùng." });
+
+    const hash = await bcrypt.hash(new_password, 10);
+
+    user.password_hash = hash;
+    await user.save();
+
+    // Xoá OTP sau khi đổi mật khẩu
+    await VerifyCode.deleteMany({ email });
+
+    res.json({ message: "Đặt lại mật khẩu thành công." });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Lỗi hệ thống." });
+  }
+}
+
