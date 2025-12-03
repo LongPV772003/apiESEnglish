@@ -210,8 +210,8 @@ export async function forgotPassword(req, res) {
       verified: false,
     });
 
-    // Gửi email
-    await sendVerifyCode(email, code);
+    // Gửi email loại "reset password"
+    await sendVerifyEmail(email, code, "resetPassword");
 
     res.json({ message: "Mã xác minh đã được gửi đến email của bạn." });
 
@@ -220,6 +220,7 @@ export async function forgotPassword(req, res) {
     res.status(500).json({ message: "Lỗi hệ thống." });
   }
 }
+
 export async function verifyResetCode(req, res) {
   try {
     const { email, code } = req.body;
