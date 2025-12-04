@@ -270,5 +270,44 @@ export const getMockTestAttemptDetail = async (req, res) => {
 
   res.json({ attempt, answers });
 };
+export const deleteAllMyMockTestAttempts = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const attempts = await MockTestAttempt.find({ user_id: userId }).lean();
+
+    if (!attempts.length) {
+      return res.json({
+        message: "User chưa có attempt nào để xoá",
+        deleted: 0
+      });
+    }
+
+    const attemptIds = attempts.map(a => a._id);
+
+    // Xoá answers
+    await MockTestAttemptAnswer.deleteMany({
+      attempt_id: { $in: attemptIds }
+    });
+
+    // Xoá attempt
+    const deleted = await MockTestAttempt.deleteMany({
+      _id: { $in: attemptIds }
+    });
+
+    return res.json({
+      message: "Đã xoá toàn bộ attempt & answers của user",
+      deleted: deleted.deletedCount
+    });
+
+  } catch (err) {
+    console.error("deleteAllMyMockTestAttempts error:", err);
+    return res.status(500).json({
+      message: "Server error",
+      error: err.message
+    });
+  }
+};
+
 
 

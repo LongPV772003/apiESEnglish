@@ -10,7 +10,6 @@ import { existsSync } from "fs";
 
 dotenv.config();
 
-
 // Gửi mã xác minh qua email
 export async function sendCode(req, res) {
   try {
@@ -22,16 +21,8 @@ export async function sendCode(req, res) {
     if (!validator.isEmail(email))
       return res.status(400).json({ message: "Email không hợp lệ." });
 
-    // ✅ Kiểm tra domain có MX record không
-    const domain = email.split("@")[1];
-    try {
-      const mxRecords = await dns.resolveMx(domain);
-      if (!mxRecords || mxRecords.length === 0) {
-        return res.status(400).json({ message: "Tên miền email không tồn tại." });
-      }
-    } catch {
-      return res.status(400).json({ message: "Tên miền email không tồn tại." });
-    }
+    // ⚠ Không kiểm tra MX nữa (gây lỗi giả)
+    
     const exists = await User.findOne({ email });
     if (exists)
       return res.status(409).json({ message: "Email đã được đăng ký." });
