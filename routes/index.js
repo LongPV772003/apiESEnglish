@@ -8,6 +8,7 @@ import attempts from "./attemptRoutes.js";
 import tests from "./testAdminRoutes.js";
 import result from "./resultRoutes.js";
 import userTime from "./userStudyTimeRoutes.js";
+import aiAnsswer from "./aiRoutes.js"
 const api = express.Router();
 api.use("/auth", auth);
 api.use("/users", users);
@@ -18,4 +19,5 @@ api.use("/attempts", attempts);
 api.use("/admin/tests", tests);
 api.use("/results", result);
 api.use("/time", userTime)
+api.use("/ai",aiAnsswer)
 export default api;
